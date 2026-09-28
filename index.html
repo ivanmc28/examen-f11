@@ -109,9 +109,9 @@ button:disabled{opacity:.4;cursor:not-allowed;}
 </header>
 <div class="docs-bar" id="docsBar">
   <span class="docs-title">📥 Descargar documentos:</span>
-  <a href="ReglasDelJuego26-27.pdf" download>Reglas de Juego 26/27</a>
-  <a href="Resumen_Articulos_Bases_Competicion_20-30.pdf" download>Bases de Competición (Art. 20-30)</a>
-  <a href="ResumenReglamentoCompeticiones.pdf" download>Reglamento de Competiciones</a>
+  <a href="ReglasDelJuego26-27.pdf" data-pdf="1">Reglas de Juego 26/27</a>
+  <a href="Resumen_Articulos_Bases_Competicion_20-30.pdf" data-pdf="1">Bases de Competición (Art. 20-30)</a>
+  <a href="ResumenReglamentoCompeticiones.pdf" data-pdf="1">Reglamento de Competiciones</a>
   <a href="https://www.theifab.com/es/laws-of-the-game-documents/?language=all&year=2026%2F27" target="_blank" rel="noopener">Web oficial IFAB ↗</a>
 </div>
 <div class="container" id="app"></div>
@@ -388,7 +388,7 @@ function renderConfig(errorMsg){
       </div>
       <input type="hidden" id="soloNoVistas" value="0">
 
-      <label>Ubicación de las Reglas de Juego (carpeta donde tienes ReglasDelJuego26-27.pdf)</label>
+      <label>Ubicación de las Reglas de Juego en tu ordenador (opcional)</label>
       <input type="text" id="carpetaDocs" placeholder="Ej.: C:\Users\Ivan\Descargas   ó   /Users/ivan/Descargas" value="${carpetaDocs().replace(/"/g,'&quot;')}" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;">
       <div class="info-text">Escribe la carpeta (o la ruta completa del PDF) y se usará para abrir el documento que justifica cada respuesta. Se recuerda para la próxima vez.</div>
 
@@ -701,7 +701,7 @@ async function alSeleccionarPdfs(files, fuente, pag){
   }
   abrirDoc(fuente, pag);
 }
-function carpetaDocs(){ try{ const v = localStorage.getItem('f11_carpeta_docs'); return v===null ? '/home/ivanmc/Escritorio/ZZTemarioArbitro/' : v; }catch(e){ return '/home/ivanmc/Escritorio/ZZTemarioArbitro/'; } }
+function carpetaDocs(){ try{ const v = localStorage.getItem('f11_carpeta_docs'); return v===null ? '' : v; }catch(e){ return ''; } }
 function guardarCarpetaDocs(v){ try{ localStorage.setItem('f11_carpeta_docs', v.trim()); }catch(e){} }
 
 // ---------- PERSISTENCIA: HISTORIAL / FALLADAS / MARCADAS (localStorage) ----------
@@ -852,7 +852,10 @@ function generarExamenDesdeIds(ids, modoExamen){
 }
 function urlDesdeRuta(fuente, pag){
   let r = carpetaDocs().trim().replace(/^["']|["']$/g,'').replace(/\\/g,'/');
-  if(!r) return null;
+  if(!r){
+    if(/^https?:$/.test(location.protocol)) return encodeURI(fuente)+'#page='+pag;   // PDF alojado en la propia web
+    return null;
+  }
   if(/\.pdf$/i.test(r)) r = r.replace(/\/[^\/]*$/,'');   // si pegó la ruta de un PDF, quitar el nombre
   r = r.replace(/\/+$/,'');
   const base = /^[A-Za-z]:/.test(r) ? 'file:///'+r : (r.startsWith('/') ? 'file://'+r : 'file:///'+r);
@@ -1409,6 +1412,26 @@ document.addEventListener('keydown', function(e){
     if(idx < total-1){ state.actual++; renderPregunta(); }
     return;
   }
+});
+
+
+// ---------- DESCARGA DE PDFs (con comprobación) ----------
+document.querySelectorAll('#docsBar a[data-pdf]').forEach(a=>{
+  a.addEventListener('click', async (e)=>{
+    e.preventDefault();
+    const url = a.getAttribute('href');
+    try{
+      const r = await fetch(url, {method:'HEAD', cache:'no-store'});
+      const tipo = (r.headers.get('content-type')||'').toLowerCase();
+      if(r.ok && tipo.indexOf('pdf') !== -1){
+        const t = document.createElement('a');
+        t.href = url; t.download = url; document.body.appendChild(t); t.click(); t.remove();
+        return;
+      }
+    }catch(err){}
+    alert('Este documento todavía no está subido a la web (o se subió con otro nombre).\n\nTe abro la web oficial del IFAB, donde puedes descargar las Reglas de Juego.');
+    window.open('https://www.theifab.com/es/laws-of-the-game-documents/?language=all&year=2026%2F27', '_blank', 'noopener');
+  });
 });
 
 // ---------- ARRANQUE ----------
