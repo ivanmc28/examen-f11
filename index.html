@@ -213,7 +213,7 @@ function arrancarTemporizador(){
   }, 1000);
 }
 
-const APP_VERSION = '20260929-082934';
+const APP_VERSION = '20260929-091016';
 const app = document.getElementById('app');
 
 // ---------- TEMA CLARO / OSCURO ----------
@@ -255,6 +255,17 @@ function shuffle(arr){
   // indicesAleatoriosUnicos, aplicado a todo el array).
   const indices = indicesAleatoriosUnicos(arr.length, arr.length);
   return indices.map(i => arr[i]);
+}
+// Devuelve la letra (A/B/C) que en ESTA instancia de la pregunta contiene el
+// texto de la respuesta correcta. La corrección nunca se decide comparando
+// letras entre sí: siempre se compara el texto de la opción elegida contra
+// q.correctaTexto, y esta función solo sirve para saber qué letra mostrar.
+function letraCorrecta(q){
+  for(const l of ['A','B','C']){ if(q.opciones[l] === q.correctaTexto) return l; }
+  return null;
+}
+function esCorrecta(q, letraElegida){
+  return letraElegida !== undefined && q.opciones[letraElegida] === q.correctaTexto;
 }
 
 function pickRandom(arr, n){
@@ -577,7 +588,7 @@ function renderMarcadas(){
       <div class="tag">${q.id}</div>
       <div class="tag">${q.bloque==='reglas'?(q.regla||'Reglas'):(q.articulo||'Normativa')}</div>
       <div style="margin-top:8px;font-weight:600;">${q.enunciado}</div>
-      <div style="margin-top:8px;font-size:.9rem;">Respuesta correcta: <strong>${q.correcta}) ${q.opciones[q.correcta]}</strong></div>
+      <div style="margin-top:8px;font-size:.9rem;">Respuesta correcta: <strong>${letraCorrecta(q)}) ${q.correctaTexto}</strong></div>
       <div class="explicacion-box" style="margin-top:8px;">${q.explicacion}</div>
       <button type="button" class="btn-outline" data-desmarcar="${q.id}" style="margin-top:8px;font-size:.8rem;padding:4px 10px;">☆ Quitar de marcadas</button>
     </div>
@@ -639,7 +650,7 @@ function pintarResultadosBuscador(query){
       <div class="tag">${q.id}</div>
       <div class="tag">${q.bloque==='reglas'?(q.regla||'Reglas'):(q.articulo||'Normativa')}</div>
       <div style="margin-top:8px;font-weight:600;">${q.enunciado}</div>
-      <div style="margin-top:6px;font-size:.9rem;">Respuesta correcta: <strong>${q.correcta}) ${q.opciones[q.correcta]}</strong></div>
+      <div style="margin-top:6px;font-size:.9rem;">Respuesta correcta: <strong>${letraCorrecta(q)}) ${q.correctaTexto}</strong></div>
       <div class="explicacion-box" style="margin-top:8px;">${q.explicacion}</div>
     </div>
   `).join('');
@@ -720,7 +731,7 @@ function actualizarFalladas(examen, respuestas){
   const falladas = new Set(getFalladas());
   examen.forEach((q,i)=>{
     const resp = respuestas[i];
-    if(resp === q.correcta) falladas.delete(q.id);
+    if(esCorrecta(q, resp)) falladas.delete(q.id);
     else falladas.add(q.id); // errores y sin responder van al pool de repaso
   });
   setFalladasArr(Array.from(falladas));
@@ -808,14 +819,14 @@ function calcularStats(examen, respuestas){
     const resp = respuestas[i];
     statsPorBloque[q.bloque].total++;
     statsPorNivel[q.dificultad].total++;
-    if(resp === q.correcta) statsPorNivel[q.dificultad].ok++;
+    if(esCorrecta(q, resp)) statsPorNivel[q.dificultad].ok++;
     if(q.bloque==='reglas'){
       const key = q.regla || 'Otras';
       if(!statsPorRegla[key]) statsPorRegla[key] = {ok:0,total:0};
       statsPorRegla[key].total++;
     }
     if(resp === undefined){ sinResponder++; }
-    else if(resp === q.correcta){
+    else if(esCorrecta(q, resp)){
       aciertos++;
       statsPorBloque[q.bloque].ok++;
       if(q.bloque==='reglas'){ statsPorRegla[q.regla||'Otras'].ok++; }
@@ -834,13 +845,12 @@ function generarExamenDesdeIds(ids, modoExamen){
     const letras = ['A','B','C'];
     const mezcladas = shuffle(letras);
     const nuevasOpciones = {};
-    let nuevaCorrecta = null;
+    const correctaTexto = q.opciones[q.correcta];
     mezcladas.forEach((letraOriginal, idx)=>{
       const letraNueva = letras[idx];
       nuevasOpciones[letraNueva] = q.opciones[letraOriginal];
-      if(letraOriginal === q.correcta) nuevaCorrecta = letraNueva;
     });
-    return Object.assign({}, q, {opciones: nuevasOpciones, correcta: nuevaCorrecta});
+    return Object.assign({}, q, {opciones: nuevasOpciones, correctaTexto: correctaTexto});
   });
   state.examen = preguntas;
   state.respuestas = {}; state.comprobadas = {}; state.actual = 0; state.finalizado = false;
@@ -1027,18 +1037,20 @@ function generarExamen(nReglas, nNormativa, modo, niveles, temasReglas, temasNor
   const seleccionNormativa = pickNormativa(poolNormativa, nNormativa);
   let seleccion = shuffle(seleccionReglas.concat(seleccionNormativa));
 
-  // Mezclar orden de opciones A/B/C para cada pregunta
+  // Mezclar orden de opciones A/B/C para cada pregunta.
+  // La corrección nunca depende de qué letra le toque a cada opción: guardamos
+  // el TEXTO literal de la respuesta correcta (correctaTexto), fijado antes de
+  // barajar, y toda comprobación posterior compara contra ese texto.
   seleccion = seleccion.map(q=>{
     const letras = ['A','B','C'];
     const mezcladas = shuffle(letras);
     const nuevasOpciones = {};
-    let nuevaCorrecta = null;
+    const correctaTexto = q.opciones[q.correcta];
     mezcladas.forEach((letraOriginal, idx)=>{
       const letraNueva = letras[idx];
       nuevasOpciones[letraNueva] = q.opciones[letraOriginal];
-      if(letraOriginal === q.correcta) nuevaCorrecta = letraNueva;
     });
-    return Object.assign({}, q, {opciones: nuevasOpciones, correcta: nuevaCorrecta});
+    return Object.assign({}, q, {opciones: nuevasOpciones, correctaTexto: correctaTexto});
   });
 
   state.examen = seleccion;
@@ -1094,7 +1106,7 @@ function renderPregunta(){
     let cls = 'opcion';
     if(seleccionActual === letra) cls += ' selected';
     if((modoExamen === false && yaComprobada) || (modoExamen===false && state.comprobadas[idx])){
-      if(letra === q.correcta) cls += ' correcta';
+      if(esCorrecta(q, letra)) cls += ' correcta';
       else if(letra === seleccionActual) cls += ' incorrecta';
     }
     return `<button class="${cls}" data-letra="${letra}" ${bloq?'disabled':''}>
@@ -1104,10 +1116,10 @@ function renderPregunta(){
 
   let explicacionHtml = '';
   if(!modoExamen && state.comprobadas[idx]){
-    const acierto = seleccionActual === q.correcta;
+    const acierto = esCorrecta(q, seleccionActual);
     explicacionHtml = `
       <div class="explicacion-box ${acierto?'correcta-box':'incorrecta-box'}">
-        <strong>${acierto ? '✅ Correcta' : '❌ Incorrecta'}</strong> — Respuesta correcta: <strong>${q.correcta}</strong><br>
+        <strong>${acierto ? '✅ Correcta' : '❌ Incorrecta'}</strong> — Respuesta correcta: <strong>${letraCorrecta(q)}) ${q.correctaTexto}</strong><br>
         <div style="margin-top:6px;">${q.explicacion}</div>
         <div class="info-text" style="margin-top:6px;">Referencia: ${q.referencia || q.regla || q.articulo || '-'} · Fuente: ${q.fuente}</div>
         <div style="margin-top:6px;">${linkFuenteHtml(q)}</div>
@@ -1178,7 +1190,7 @@ function renderFlashcardPregunta(){
 
   const opcionesHtml = ['A','B','C'].map(letra=>{
     let cls = 'opcion';
-    if(revelada && letra === q.correcta) cls += ' correcta';
+    if(revelada && esCorrecta(q, letra)) cls += ' correcta';
     return `<button class="${cls}" data-letra="${letra}" disabled style="cursor:default;">
       <span class="letra">${letra}</span>${q.opciones[letra]}
     </button>`;
@@ -1186,7 +1198,7 @@ function renderFlashcardPregunta(){
 
   const explicacionHtml = revelada ? `
     <div class="explicacion-box correcta-box">
-      <strong>✅ Respuesta correcta: ${q.correcta}</strong>
+      <strong>✅ Respuesta correcta: ${letraCorrecta(q)}) ${q.correctaTexto}</strong>
       <div style="margin-top:6px;">${q.explicacion}</div>
       <div class="info-text" style="margin-top:6px;">Referencia: ${q.referencia || q.regla || q.articulo || '-'} · Fuente: ${q.fuente}</div>
       <div style="margin-top:6px;">${linkFuenteHtml(q)}</div>
@@ -1268,14 +1280,14 @@ function renderResultados(){
     const resp = state.respuestas[i];
     statsPorBloque[q.bloque].total++;
     statsPorNivel[q.dificultad].total++;
-    if(resp === q.correcta) statsPorNivel[q.dificultad].ok++;
+    if(esCorrecta(q, resp)) statsPorNivel[q.dificultad].ok++;
     if(q.bloque==='reglas'){
       const key = q.regla || 'Otras';
       if(!statsPorRegla[key]) statsPorRegla[key] = {ok:0,total:0};
       statsPorRegla[key].total++;
     }
     if(resp === undefined){ sinResponder++; }
-    else if(resp === q.correcta){
+    else if(esCorrecta(q, resp)){
       aciertos++;
       statsPorBloque[q.bloque].ok++;
       if(q.bloque==='reglas'){ statsPorRegla[q.regla||'Otras'].ok++; }
@@ -1288,7 +1300,7 @@ function renderResultados(){
 
   const reviewHtml = state.examen.map((q,i)=>{
     const resp = state.respuestas[i];
-    const acierto = resp === q.correcta;
+    const acierto = esCorrecta(q, resp);
     const cls = resp===undefined ? 'blank' : (acierto ? 'ok' : 'ko');
     return `
       <div class="review-item ${cls}">
@@ -1298,7 +1310,7 @@ function renderResultados(){
         <div style="margin-top:8px;font-weight:600;">${q.enunciado}</div>
         <div style="margin-top:8px;font-size:.9rem;">
           Tu respuesta: <strong>${resp ? resp+') '+q.opciones[resp] : 'Sin responder'}</strong><br>
-          Respuesta correcta: <strong>${q.correcta}) ${q.opciones[q.correcta]}</strong>
+          Respuesta correcta: <strong>${letraCorrecta(q)}) ${q.correctaTexto}</strong>
         </div>
         <div class="explicacion-box" style="margin-top:8px;">
           <strong>Explicación:</strong> ${q.explicacion}<br>
@@ -1358,7 +1370,7 @@ function renderResultados(){
   document.getElementById('btnConfig').addEventListener('click', ()=>renderConfig());
   const btnRepasarExamen = document.getElementById('btnRepasarFalladasExamen');
   if(btnRepasarExamen) btnRepasarExamen.addEventListener('click', ()=>{
-    const idsFalladas = state.examen.filter((q,i)=> state.respuestas[i] !== q.correcta).map(q=>q.id);
+    const idsFalladas = state.examen.filter((q,i)=> !esCorrecta(q, state.respuestas[i])).map(q=>q.id);
     generarExamenDesdeIds(idsFalladas, false);
   });
   const btnRepasarAcum2 = document.getElementById('btnRepasarFalladasAcum2');
