@@ -1,5 +1,5 @@
 // Service worker: primero red SIN caché (así siempre llega la versión nueva) y, sin conexión, lo guardado.
-const CACHE = 'f11-v2';
+const CACHE = 'f11-v3';
 const PRECACHE = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 
 self.addEventListener('install', e => {

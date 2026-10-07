@@ -263,12 +263,18 @@ function shuffle(arr){
 // texto de la respuesta correcta. La corrección nunca se decide comparando
 // letras entre sí: siempre se compara el texto de la opción elegida contra
 // q.correctaTexto, y esta función solo sirve para saber qué letra mostrar.
+// Texto de la respuesta correcta. Si la pregunta viene del banco sin barajar
+// (marcadas, buscador...) no tiene correctaTexto, así que se saca de q.correcta.
+function textoCorrecto(q){
+  return q.correctaTexto !== undefined ? q.correctaTexto : q.opciones[q.correcta];
+}
 function letraCorrecta(q){
-  for(const l of ['A','B','C']){ if(q.opciones[l] === q.correctaTexto) return l; }
+  const t = textoCorrecto(q);
+  for(const l of ['A','B','C']){ if(q.opciones[l] === t) return l; }
   return null;
 }
 function esCorrecta(q, letraElegida){
-  return letraElegida !== undefined && q.opciones[letraElegida] === q.correctaTexto;
+  return letraElegida !== undefined && q.opciones[letraElegida] === textoCorrecto(q);
 }
 
 function pickRandom(arr, n){
@@ -592,7 +598,7 @@ function renderMarcadas(){
       <div class="tag">${q.id}</div>
       <div class="tag">${q.bloque==='reglas'?(q.regla||'Reglas'):(q.articulo||'Normativa')}</div>
       <div style="margin-top:8px;font-weight:600;">${q.enunciado}</div>
-      <div style="margin-top:8px;font-size:.9rem;">Respuesta correcta: <strong>${letraCorrecta(q)}) ${q.correctaTexto}</strong></div>
+      <div style="margin-top:8px;font-size:.9rem;">Respuesta correcta: <strong>${letraCorrecta(q)}) ${textoCorrecto(q)}</strong></div>
       <div class="explicacion-box" style="margin-top:8px;">${q.explicacion}</div>
       <button type="button" class="btn-outline" data-desmarcar="${q.id}" style="margin-top:8px;font-size:.8rem;padding:4px 10px;">☆ Quitar de marcadas</button>
     </div>
@@ -662,7 +668,7 @@ function pintarResultadosBuscador(query){
       <div class="tag">${q.id}</div>
       <div class="tag">${q.bloque==='reglas'?(q.regla||'Reglas'):(q.articulo||'Normativa')}</div>
       <div style="margin-top:8px;font-weight:600;">${q.enunciado}</div>
-      <div style="margin-top:6px;font-size:.9rem;">Respuesta correcta: <strong>${letraCorrecta(q)}) ${q.correctaTexto}</strong></div>
+      <div style="margin-top:6px;font-size:.9rem;">Respuesta correcta: <strong>${letraCorrecta(q)}) ${textoCorrecto(q)}</strong></div>
       <div class="explicacion-box" style="margin-top:8px;">${q.explicacion}</div>
     </div>
   `).join('');
@@ -1154,7 +1160,7 @@ function renderPregunta(){
     const acierto = esCorrecta(q, seleccionActual);
     explicacionHtml = `
       <div class="explicacion-box ${acierto?'correcta-box':'incorrecta-box'}">
-        <strong>${acierto ? '✅ Correcta' : '❌ Incorrecta'}</strong> — Respuesta correcta: <strong>${letraCorrecta(q)}) ${q.correctaTexto}</strong><br>
+        <strong>${acierto ? '✅ Correcta' : '❌ Incorrecta'}</strong> — Respuesta correcta: <strong>${letraCorrecta(q)}) ${textoCorrecto(q)}</strong><br>
         <div style="margin-top:6px;">${q.explicacion}</div>
         <div class="info-text" style="margin-top:6px;">Referencia: ${q.referencia || q.regla || q.articulo || '-'} · Fuente: ${q.fuente}</div>
         <div style="margin-top:6px;">${linkFuenteHtml(q)}</div>
@@ -1235,7 +1241,7 @@ function renderFlashcardPregunta(){
 
   const explicacionHtml = revelada ? `
     <div class="explicacion-box correcta-box">
-      <strong>✅ Respuesta correcta: ${letraCorrecta(q)}) ${q.correctaTexto}</strong>
+      <strong>✅ Respuesta correcta: ${letraCorrecta(q)}) ${textoCorrecto(q)}</strong>
       <div style="margin-top:6px;">${q.explicacion}</div>
       <div class="info-text" style="margin-top:6px;">Referencia: ${q.referencia || q.regla || q.articulo || '-'} · Fuente: ${q.fuente}</div>
       <div style="margin-top:6px;">${linkFuenteHtml(q)}</div>
@@ -1349,7 +1355,7 @@ function renderResultados(){
         <div style="margin-top:8px;font-weight:600;">${q.enunciado}</div>
         <div style="margin-top:8px;font-size:.9rem;">
           Tu respuesta: <strong>${resp ? resp+') '+q.opciones[resp] : 'Sin responder'}</strong><br>
-          Respuesta correcta: <strong>${letraCorrecta(q)}) ${q.correctaTexto}</strong>
+          Respuesta correcta: <strong>${letraCorrecta(q)}) ${textoCorrecto(q)}</strong>
         </div>
         <div class="explicacion-box" style="margin-top:8px;">
           <strong>Explicación:</strong> ${q.explicacion}<br>
