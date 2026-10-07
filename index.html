@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" href="icon-192.png">
-<title>Examen de Ascenso Arbitral F11 — CTA/RFEF</title>
+<title>Teoría Ascenso F11 — CTA/RFEF</title>
 <style>
 :root{
   --primary:#0d3b66; --primary-dark:#082744; --accent:#1e88e5; --green:#2e7d32; --red:#c62828;
@@ -39,6 +39,8 @@ header.app-header p{margin:6px 0 0;opacity:.85;font-size:.9rem;}
 .docs-bar a:hover{opacity:.9;}
 #btnTema{position:absolute;top:14px;right:16px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:20px;padding:6px 12px;font-size:.85rem;cursor:pointer;}
 #btnTema:hover{background:rgba(255,255,255,.25);}
+#btnUsuario{position:absolute;top:14px;left:16px;max-width:46vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:20px;padding:6px 12px;font-size:.85rem;cursor:pointer;}
+#btnUsuario:hover{background:rgba(255,255,255,.25);}
 .card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.05);}
 h2{margin-top:0;color:var(--primary);font-size:1.15rem;}
 label{display:block;font-weight:600;margin:12px 0 6px;font-size:.92rem;}
@@ -111,9 +113,10 @@ button:disabled{opacity:.4;cursor:not-allowed;}
 </head>
 <body>
 <header class="app-header">
+  <button type="button" id="btnUsuario" title="Iniciar sesión para guardar tu progreso en la nube">👤 Entrar</button>
   <button type="button" id="btnTema" title="Cambiar tema claro/oscuro">🌙 Oscuro</button>
-  <h1>⚽ EXAMEN DE ASCENSO ARBITRAL F11 — CTA/RFEF</h1>
-  <p>Práctica de exámenes basados en Reglas de Juego y normativa RFEF</p>
+  <h1>⚽ TEORÍA ASCENSO F11 — CTA/RFEF</h1>
+  <p>Basados en Reglas de Juego y normativa RFEF seleccionada</p>
 </header>
 <div class="docs-bar" id="docsBar">
   <span class="docs-title">📥 Descargar documentos:</span>
@@ -213,7 +216,7 @@ function arrancarTemporizador(){
   }, 1000);
 }
 
-const APP_VERSION = '20261007-163832';
+const APP_VERSION = '20261007-170952';
 const app = document.getElementById('app');
 
 // ---------- TEMA CLARO / OSCURO ----------
@@ -728,7 +731,7 @@ function guardarCarpetaDocs(v){ try{ localStorage.setItem('f11_carpeta_docs', v.
 
 // ---------- PERSISTENCIA: HISTORIAL / FALLADAS / MARCADAS (localStorage) ----------
 function leerJSON(key, def){ try{ const v = localStorage.getItem(key); return v ? JSON.parse(v) : def; }catch(e){ return def; } }
-function guardarJSON(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){} }
+function guardarJSON(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){} if(typeof SYNC_CLAVES !== 'undefined' && SYNC_CLAVES.indexOf(key) !== -1) syncCambio(key); }
 // Confirmación dentro de la propia pantalla. No usa confirm() del navegador, que algunos navegadores
 // móviles (p. ej. los integrados en otras apps) bloquean y devuelven "no" sin mostrar nada.
 function confirmarEnPantalla(btn, mensaje, textoSi, onSi){
@@ -831,7 +834,7 @@ function continuarProgreso(){
   renderPregunta();
   return true;
 }
-function borrarProgreso(){ try{ localStorage.removeItem(CLAVE_PROGRESO); }catch(e){} }
+function borrarProgreso(){ try{ localStorage.removeItem(CLAVE_PROGRESO); }catch(e){} if(typeof SYNC_CLAVES !== 'undefined') syncCambio(CLAVE_PROGRESO); }
 // Sale del examen sin terminarlo: guarda el punto exacto (pregunta, respuestas y tiempo restante)
 // y vuelve al inicio, donde aparece "Continuar donde lo dejaste".
 function pausarExamen(){
@@ -1540,6 +1543,278 @@ if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
   });
 })();
 
+// ---------- CUENTA (SOLO NOMBRE DE USUARIO) Y SINCRONIZACIÓN ENTRE DISPOSITIVOS ----------
+// El progreso (historial, falladas, marcadas, vistas y examen en curso) se guarda en una base de datos en la
+// nube (Firebase Realtime Database, por su API REST). No hay contraseña: el nombre de usuario (sin distinguir
+// mayúsculas de minúsculas) es la clave de la cuenta. Pega abajo la URL de tu base de datos, sin barra final.
+// Si se deja vacía, la app funciona igual pero sin cuentas.
+var SYNC_URL = 'https://f11-examen-default-rtdb.europe-west1.firebasedatabase.app';
+var SYNC_CLAVES = ['f11_historial', 'f11_falladas', 'f11_marcadas', 'f11_vistas', 'f11_progreso'];
+var sync = {sincronizando:false, pendiente:false, timer:null, estado:'inactivo', ultima:0, error:''};
+var panelUsuario = {modo:'login', u:'', error:'', ocupado:false};
+
+function normalizarUsuario(s){ return String(s || '').trim().toLowerCase(); }
+function usuarioValido(u){ return /^[a-z0-9_-]{3,32}$/.test(u); }
+function getUsuario(){ try{ return localStorage.getItem('f11_usuario') || ''; }catch(e){ return ''; } }
+function getMod(k){ try{ return parseInt(localStorage.getItem('f11_mod_' + k) || '0', 10) || 0; }catch(e){ return 0; } }
+function setMod(k, t){ try{ localStorage.setItem('f11_mod_' + k, String(t)); }catch(e){} }
+function syncCambio(k){ setMod(k, Date.now()); programarSync(); }
+function programarSync(){
+  if(!getUsuario() || !SYNC_URL) return;
+  clearTimeout(sync.timer);
+  sync.estado = 'pendiente'; pintarEstadoUsuario();
+  sync.timer = setTimeout(()=>{ sincronizar(); }, 3000);
+}
+
+function leerClaveLocal(k){ try{ const raw = localStorage.getItem(k); return raw === null ? null : JSON.parse(raw); }catch(e){ return null; } }
+function mismoValor(a, b){ return JSON.stringify(a === undefined ? null : a) === JSON.stringify(b === undefined ? null : b); }
+function unirListas(a, b, idFn){
+  const vistos = new Set(), out = [];
+  [].concat(Array.isArray(a) ? a : [], Array.isArray(b) ? b : []).forEach(x=>{
+    const id = idFn(x);
+    if(!vistos.has(id)){ vistos.add(id); out.push(x); }
+  });
+  return out;
+}
+
+// Fusiona lo que hay en este dispositivo con lo que hay en la nube.
+//  - historial y vistas: se juntan (unión), nunca se pierde nada.
+//  - falladas y marcadas: gana el cambio más reciente (para que quitar una marca se propague); en la
+//    primera vez que se entra con una cuenta en un dispositivo se juntan, para no perder lo ya guardado.
+//  - examen en curso: gana el cambio más reciente (también si se descartó o terminó).
+function fusionarConNube(remoto, primera){
+  const res = {doc:{}, cambiaLocal:false, cambiaRemoto:false, aplicar:[]};
+  const activo = (typeof hayExamenEnCurso === 'function') && hayExamenEnCurso();
+  SYNC_CLAVES.forEach(k=>{
+    const lv = leerClaveLocal(k);
+    let lt = getMod(k);
+    if(!lt && lv !== null && primera) lt = Date.now();
+    const r = remoto && remoto[k] ? remoto[k] : null;
+    const rv = r && r.v !== undefined ? r.v : null;
+    const rt = r ? (r.t || 0) : 0;
+    let v, t;
+    if(k === 'f11_historial'){
+      v = (lv === null && rv === null) ? null :
+        unirListas(lv, rv, x=>x && x.fecha).sort((a,b)=> String(a.fecha).localeCompare(String(b.fecha)));
+      t = Math.max(lt, rt);
+    }else if(k === 'f11_vistas' || (primera && (k === 'f11_falladas' || k === 'f11_marcadas'))){
+      v = (lv === null && rv === null) ? null : unirListas(lv, rv, x=>x);
+      t = Math.max(lt, rt);
+    }else{
+      if(lt >= rt){ v = lv; t = lt; } else { v = rv; t = rt; }
+    }
+    // no pisar el examen que se está haciendo ahora mismo en este dispositivo
+    if(k === 'f11_progreso' && activo && rt > lt){ res.doc[k] = r; return; }
+    const cambiaLocal = !mismoValor(v, lv);
+    const cambiaRemoto = !mismoValor(v, rv) || t !== rt;
+    if(cambiaLocal) res.cambiaLocal = true;
+    if(cambiaRemoto) res.cambiaRemoto = true;
+    res.aplicar.push({k, v, t, cambiaLocal});
+    if(v !== null || t > 0) res.doc[k] = {v: v, t: t};
+  });
+  return res;
+}
+function aplicarFusion(res){
+  res.aplicar.forEach(a=>{
+    try{
+      if(a.cambiaLocal){
+        if(a.v === null) localStorage.removeItem(a.k); else localStorage.setItem(a.k, JSON.stringify(a.v));
+      }
+      if(a.t > 0) setMod(a.k, a.t);
+    }catch(e){}
+  });
+}
+
+async function leerNube(u){
+  const r = await fetch(SYNC_URL + '/usuarios/' + u + '.json', {cache:'no-store'});
+  if(!r.ok) throw new Error('HTTP ' + r.status);
+  return await r.json();      // null si todavía no existe
+}
+async function subirNube(u, doc){
+  const cuerpo = JSON.stringify({actualizado: Date.now(), datos: JSON.stringify(doc)});
+  const r = await fetch(SYNC_URL + '/usuarios/' + u + '.json', {method:'PUT', headers:{'Content-Type':'application/json'}, body: cuerpo});
+  if(!r.ok) throw new Error('HTTP ' + r.status);
+}
+async function sincronizar(opciones){
+  opciones = opciones || {};
+  const u = getUsuario();
+  if(!u || !SYNC_URL) return false;
+  if(sync.sincronizando){ sync.pendiente = true; return false; }
+  clearTimeout(sync.timer);
+  sync.sincronizando = true; sync.estado = 'sincronizando'; pintarEstadoUsuario();
+  let ok = false, cambio = false;
+  try{
+    const nube = await leerNube(u);
+    const remoto = nube && nube.datos ? JSON.parse(nube.datos) : {};
+    const res = fusionarConNube(remoto, !!opciones.primera);
+    aplicarFusion(res);
+    if(res.cambiaRemoto || nube === null) await subirNube(u, res.doc);
+    sync.ultima = Date.now(); sync.estado = 'ok'; sync.error = ''; ok = true; cambio = res.cambiaLocal;
+  }catch(e){
+    sync.estado = 'error'; sync.error = String((e && e.message) || e);
+  }
+  sync.sincronizando = false;
+  pintarEstadoUsuario();
+  if(cambio) refrescarPantallaTrasSync();
+  if(sync.pendiente){ sync.pendiente = false; programarSync(); }
+  return ok;
+}
+function refrescarPantallaTrasSync(){
+  if(typeof hayExamenEnCurso === 'function' && hayExamenEnCurso()) return;
+  if(document.getElementById('btnGenerar')) renderConfig();
+  else if(document.getElementById('btnQuitarTodas')) renderMarcadas();
+  else if(document.getElementById('btnBorrarHistorial')) renderHistorial();
+}
+
+// ----- inicio y cierre de sesión -----
+async function comprobarUsuario(crudo){
+  const u = normalizarUsuario(crudo);
+  if(!usuarioValido(u)) return {ok:false, error:'Usa entre 3 y 32 caracteres: letras, números, guion o guion bajo (sin espacios).'};
+  try{
+    const nube = await leerNube(u);
+    return {ok:true, u:u, existe: nube !== null};
+  }catch(e){
+    return {ok:false, error: describirErrorSync(e)};
+  }
+}
+// Explica con claridad por qué falla la conexión con la base de datos.
+function describirErrorSync(e){
+  const m = String((e && e.message) || e);
+  if(/HTTP (401|403)/.test(m)) return 'La base de datos rechazó el acceso (' + m + '). En Firebase, entra en Realtime Database → Reglas, comprueba que están pegadas las reglas de la app y pulsa Publicar.';
+  if(/HTTP 404/.test(m)) return 'No se encuentra la base de datos (' + m + '). Revisa que la dirección puesta en la app sea la de tu Realtime Database.';
+  if(/^HTTP/.test(m)) return 'La base de datos respondió con un error (' + m + ').';
+  return 'No se pudo conectar. Revisa tu conexión (o si algún bloqueador de anuncios bloquea firebasedatabase.app) e inténtalo de nuevo.';
+}
+async function entrarConUsuario(u){
+  let ultimo = ''; try{ ultimo = localStorage.getItem('f11_ultimo_usuario') || ''; }catch(e){}
+  if(ultimo && ultimo !== u){      // otra persona usó este dispositivo: empezar limpio
+    SYNC_CLAVES.forEach(k=>{ try{ localStorage.removeItem(k); localStorage.removeItem('f11_mod_' + k); }catch(e){} });
+  }
+  try{ localStorage.setItem('f11_usuario', u); localStorage.setItem('f11_ultimo_usuario', u); }catch(e){}
+  await sincronizar({primera: ultimo !== u});
+  pintarEstadoUsuario();
+  refrescarPantallaTrasSync();
+}
+function cerrarSesion(){
+  clearTimeout(sync.timer);
+  try{ localStorage.removeItem('f11_usuario'); }catch(e){}
+  sync.estado = 'inactivo'; sync.ultima = 0; sync.error = '';
+  pintarEstadoUsuario();
+}
+
+// ----- interfaz -----
+function haceTexto(ms){
+  const s = Math.max(0, Math.round((Date.now() - ms) / 1000));
+  if(s < 10) return 'ahora mismo';
+  if(s < 60) return 'hace ' + s + ' s';
+  if(s < 3600) return 'hace ' + Math.round(s / 60) + ' min';
+  return 'hace ' + Math.round(s / 3600) + ' h';
+}
+function textoEstadoSync(){
+  if(sync.estado === 'sincronizando') return '🔄 Sincronizando…';
+  if(sync.estado === 'pendiente') return '⏳ Cambios pendientes de subir';
+  if(sync.estado === 'error') return /HTTP (401|403)/.test(sync.error) ? '⚠️ La base de datos rechaza el acceso: revisa las reglas en Firebase' : '⚠️ Sin conexión o con error; se reintentará solo';
+  if(sync.estado === 'ok') return '✅ Sincronizado ' + haceTexto(sync.ultima);
+  return '—';
+}
+function pintarEstadoUsuario(){
+  const btn = document.getElementById('btnUsuario');
+  if(btn){
+    const u = getUsuario();
+    if(!u){ btn.textContent = '👤 Entrar'; btn.title = 'Iniciar sesión para guardar tu progreso en la nube'; }
+    else{
+      const color = sync.estado === 'error' ? '#ef5350' : (sync.estado === 'ok' ? '#66bb6a' : '#ffca28');
+      btn.innerHTML = '👤 ' + u + ' <span style="color:' + color + ';">●</span>';
+      btn.title = 'Sesión iniciada como ' + u;
+    }
+  }
+  const est = document.getElementById('estadoSync');
+  if(est) est.textContent = textoEstadoSync();
+}
+function cerrarPanelUsuario(){ const p = document.getElementById('panelUsuario'); if(p) p.remove(); }
+function abrirPanelUsuario(){
+  cerrarPanelUsuario();
+  panelUsuario = {modo: getUsuario() ? 'sesion' : 'login', u:'', error:'', ocupado:false};
+  const ov = document.createElement('div');
+  ov.id = 'panelUsuario';
+  ov.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.55);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px;';
+  const caja = document.createElement('div');
+  caja.className = 'card'; caja.id = 'cajaUsuario';
+  caja.style.cssText = 'max-width:420px;width:100%;margin:0;max-height:90vh;overflow:auto;';
+  ov.appendChild(caja);
+  ov.addEventListener('click', e=>{ if(e.target === ov) cerrarPanelUsuario(); });
+  document.body.appendChild(ov);
+  pintarPanelUsuario();
+}
+function pintarPanelUsuario(){
+  const caja = document.getElementById('cajaUsuario'); if(!caja) return;
+  const err = panelUsuario.error ? '<div class="error-box">' + panelUsuario.error + '</div>' : '';
+  if(panelUsuario.modo === 'sesion'){
+    caja.innerHTML =
+      '<h2>👤 ' + getUsuario() + '</h2>' +
+      '<div class="info-text">Sesión iniciada. Tu progreso (historial, falladas, marcadas y examen en curso) se sincroniza solo entre tus dispositivos.</div>' +
+      '<div class="stat-row" style="margin-top:12px;"><span>Estado</span><span id="estadoSync"></span></div>' + err +
+      '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;">' +
+      '<button type="button" class="btn-primary" id="btnSyncAhora" style="flex:1;">🔄 SINCRONIZAR AHORA</button>' +
+      '<button type="button" class="btn-outline" id="btnSalirSesion" style="flex:1;">CERRAR SESIÓN</button></div>' +
+      '<div class="info-text" style="margin-top:10px;">Al cerrar sesión, tus datos se quedan en este dispositivo y en la nube.</div>' +
+      '<button type="button" class="btn-outline" id="btnCerrarPanel" style="width:100%;margin-top:10px;">CERRAR</button>';
+    document.getElementById('btnSyncAhora').addEventListener('click', async ()=>{ await sincronizar(); pintarEstadoUsuario(); });
+    document.getElementById('btnSalirSesion').addEventListener('click', ()=>{ cerrarSesion(); cerrarPanelUsuario(); });
+    document.getElementById('btnCerrarPanel').addEventListener('click', cerrarPanelUsuario);
+  }else if(panelUsuario.modo === 'nuevo'){
+    caja.innerHTML =
+      '<h2>👤 ¿Usuario nuevo?</h2>' +
+      '<div class="info-text">No hay ningún progreso guardado con el nombre <strong>' + panelUsuario.u + '</strong>. Si es la primera vez que lo usas, se creará la cuenta y se subirá el progreso de este dispositivo. Si te has equivocado al escribirlo, corrígelo.</div>' + err +
+      '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;">' +
+      '<button type="button" class="btn-primary" id="btnCrearCuenta" style="flex:1;">SÍ, CREAR «' + panelUsuario.u + '»</button>' +
+      '<button type="button" class="btn-outline" id="btnCorregir" style="flex:1;">CORREGIR NOMBRE</button></div>';
+    document.getElementById('btnCrearCuenta').addEventListener('click', async ()=>{
+      const b = document.getElementById('btnCrearCuenta'); b.disabled = true; b.textContent = 'Creando…';
+      await entrarConUsuario(panelUsuario.u);
+      cerrarPanelUsuario();
+    });
+    document.getElementById('btnCorregir').addEventListener('click', ()=>{ panelUsuario.modo = 'login'; panelUsuario.error = ''; pintarPanelUsuario(); });
+  }else{
+    const sinConfig = !SYNC_URL;
+    caja.innerHTML =
+      '<h2>👤 Iniciar sesión</h2>' +
+      '<div class="info-text">Escribe tu nombre de usuario para guardar y recuperar tu progreso en cualquier dispositivo. No hace falta contraseña ni registro, y da igual escribirlo en mayúsculas o minúsculas.</div>' +
+      (sinConfig ? '<div class="error-box">La sincronización todavía no está configurada (falta la dirección de la base de datos en el código de la app).</div>' : '') +
+      '<input type="text" id="inpUsuario" autocapitalize="none" autocomplete="off" autocorrect="off" spellcheck="false" maxlength="32" placeholder="tu nombre de usuario" style="margin-top:12px;" value="' + panelUsuario.u + '" ' + (sinConfig ? 'disabled' : '') + '>' + err +
+      '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;">' +
+      '<button type="button" class="btn-primary" id="btnEntrar" style="flex:1;" ' + (sinConfig ? 'disabled' : '') + '>ENTRAR</button>' +
+      '<button type="button" class="btn-outline" id="btnCerrarPanel" style="flex:1;">CANCELAR</button></div>' +
+      '<div class="info-text" style="margin-top:12px;">⚠️ Quien conozca tu nombre de usuario podrá ver tu progreso: elige uno que no sea fácil de adivinar.</div>';
+    const inp = document.getElementById('inpUsuario');
+    const entrar = async ()=>{
+      if(panelUsuario.ocupado) return;
+      panelUsuario.ocupado = true;
+      const b = document.getElementById('btnEntrar'); b.disabled = true; b.textContent = 'Comprobando…';
+      const r = await comprobarUsuario(inp.value);
+      panelUsuario.ocupado = false;
+      if(!r.ok){ panelUsuario.u = inp.value; panelUsuario.error = r.error; pintarPanelUsuario(); return; }
+      panelUsuario.u = r.u; panelUsuario.error = '';
+      if(r.existe){ await entrarConUsuario(r.u); cerrarPanelUsuario(); }
+      else{ panelUsuario.modo = 'nuevo'; pintarPanelUsuario(); }
+    };
+    document.getElementById('btnEntrar').addEventListener('click', entrar);
+    inp.addEventListener('keydown', e=>{ if(e.key === 'Enter'){ e.preventDefault(); entrar(); } });
+    document.getElementById('btnCerrarPanel').addEventListener('click', cerrarPanelUsuario);
+    if(!sinConfig) setTimeout(()=>{ try{ inp.focus(); }catch(e){} }, 50);
+  }
+  pintarEstadoUsuario();
+}
+document.getElementById('btnUsuario').addEventListener('click', abrirPanelUsuario);
+document.addEventListener('keydown', e=>{ if(e.key === 'Escape') cerrarPanelUsuario(); });
+// al salir de la app se sube lo pendiente; al volver se trae lo que se haya hecho en otros dispositivos
+document.addEventListener('visibilitychange', ()=>{
+  if(!getUsuario() || !SYNC_URL) return;
+  if(document.visibilityState === 'hidden'){ sincronizar(); }
+  else if(Date.now() - sync.ultima > 5000){ sincronizar(); }
+});
+window.addEventListener('online', ()=>{ if(getUsuario() && SYNC_URL) sincronizar(); });
+
 // ---------- LIMPIEZA DE REGISTROS DE PREGUNTAS BORRADAS / RECICLADAS ----------
 // Cuando se borra una pregunta y su ID queda libre, se borra también todo su rastro guardado en el
 // navegador (falladas, marcadas, vistas). Si más adelante ese ID se reutiliza para una pregunta nueva,
@@ -1577,6 +1852,8 @@ window.addEventListener('beforeunload', function(e){
 });
 
 renderConfig();
+pintarEstadoUsuario();
+if(getUsuario() && SYNC_URL) sincronizar();
 
 </script>
 </body>
