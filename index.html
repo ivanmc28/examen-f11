@@ -216,7 +216,7 @@ function arrancarTemporizador(){
   }, 1000);
 }
 
-const APP_VERSION = '20261014-142004';
+const APP_VERSION = '20261014-171043';
 const app = document.getElementById('app');
 
 // ---------- TEMA CLARO / OSCURO ----------
@@ -1812,7 +1812,17 @@ function pintarPanelUsuario(){
   pintarEstadoUsuario();
 }
 document.getElementById('btnUsuario').addEventListener('click', abrirPanelUsuario);
-document.addEventListener('keydown', e=>{ if(e.key === 'Escape') cerrarPanelUsuario(); });
+// Escape: cierra lo que esté abierto (cuenta, confirmación); si no hay nada, hace lo mismo que
+// "PAUSAR Y SALIR" durante un examen, o que "VOLVER" en resultados, repaso y demás pantallas.
+document.addEventListener('keydown', e=>{
+  if(e.key !== 'Escape') return;
+  if(document.getElementById('panelUsuario')){ cerrarPanelUsuario(); return; }
+  const no = document.querySelector('[data-no]');
+  if(no){ no.click(); return; }
+  if(document.getElementById('btnPausar')){ e.preventDefault(); pausarExamen(); return; }
+  const volver = document.getElementById('btnVolverConfig') || document.getElementById('btnConfig');
+  if(volver){ e.preventDefault(); volver.click(); }
+});
 // al salir de la app se sube lo pendiente; al volver se trae lo que se haya hecho en otros dispositivos
 document.addEventListener('visibilitychange', ()=>{
   if(!getUsuario() || !SYNC_URL) return;
