@@ -264,7 +264,7 @@ function avanzarExamen(){
   else finalizarExamen();
 }
 
-const APP_VERSION = '20261020-124603';
+const APP_VERSION = '20261020-125558';
 const app = document.getElementById('app');
 // La barra de descarga de documentos solo se muestra en la pantalla de inicio.
 function mostrarDocsBar(si){ const d = document.getElementById('docsBar'); if(d) d.classList.toggle('hidden', !si); }
@@ -794,7 +794,7 @@ function guardarCarpetaDocs(v){ try{ localStorage.setItem('f11_carpeta_docs', v.
 
 // ---------- PERSISTENCIA: HISTORIAL / FALLADAS / MARCADAS (localStorage) ----------
 function leerJSON(key, def){ try{ const v = localStorage.getItem(key); return v ? JSON.parse(v) : def; }catch(e){ return def; } }
-function guardarJSON(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){} if(typeof SYNC_CLAVES !== 'undefined' && SYNC_CLAVES.indexOf(key) !== -1) syncCambio(key); }
+function guardarJSON(key, val){ if(typeof CLAVES_POR_ID !== 'undefined' && CLAVES_POR_ID.indexOf(key) !== -1) registrarCambiosLista(key, leerJSON(key, []), val); try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){} if(typeof SYNC_CLAVES !== 'undefined' && SYNC_CLAVES.indexOf(key) !== -1) syncCambio(key); }
 // Confirmación dentro de la propia pantalla. No usa confirm() del navegador, que algunos navegadores
 // móviles (p. ej. los integrados en otras apps) bloquean y devuelven "no" sin mostrar nada.
 function confirmarEnPantalla(btn, mensaje, textoSi, onSi){
@@ -1679,7 +1679,7 @@ function programarSync(){
   if(!getUsuario() || !SYNC_URL) return;
   clearTimeout(sync.timer);
   sync.estado = 'pendiente'; pintarEstadoUsuario();
-  sync.timer = setTimeout(()=>{ sincronizar(); }, 3000);
+  sync.timer = setTimeout(()=>{ sincronizar(); }, 1500);
 }
 
 function leerClaveLocal(k){ try{ const raw = localStorage.getItem(k); return raw === null ? null : JSON.parse(raw); }catch(e){ return null; } }
@@ -1693,10 +1693,40 @@ function unirListas(a, b, idFn){
   return out;
 }
 
+// Marcadas y falladas se sincronizan pregunta a pregunta: para cada ID se guarda si está en la lista
+// (1) o se quitó (0) y cuándo cambió, en «<clave>_log». Al fusionar gana el cambio más reciente de cada
+// pregunta, así que quitar una marca en un dispositivo no se pierde aunque otro haya cambiado otras.
+var CLAVES_POR_ID = ['f11_marcadas', 'f11_falladas'];
+function leerLog(k){ const l = leerJSON(k + '_log', {}); return (l && typeof l === 'object' && !Array.isArray(l)) ? l : {}; }
+function guardarLog(k, log){ try{ localStorage.setItem(k + '_log', JSON.stringify(log)); }catch(e){} }
+function registrarCambiosLista(k, antes, despues){
+  const log = leerLog(k), t = Date.now();
+  const a = new Set(Array.isArray(antes) ? antes : []), d = new Set(Array.isArray(despues) ? despues : []);
+  d.forEach(id=>{ if(!a.has(id)) log[id] = [1, t]; else if(!log[id]) log[id] = [1, 0]; });
+  a.forEach(id=>{ if(!d.has(id)) log[id] = [0, t]; });
+  guardarLog(k, log);
+}
+function fusionarLista(k, lv, r, rt){
+  const local = Array.isArray(lv) ? lv : [];
+  const logL = leerLog(k);
+  local.forEach(id=>{ if(!logL[id]) logL[id] = [1, getMod(k)]; });   // datos de antes de este sistema
+  let logR = r && r.log && typeof r.log === 'object' ? r.log : null;
+  if(!logR){                       // la nube aún tiene el formato antiguo (solo la lista)
+    logR = {};
+    const rv = r && Array.isArray(r.v) ? r.v : [];
+    rv.forEach(id=>{ logR[id] = [1, rt]; });
+    if(r) Object.keys(logL).forEach(id=>{ if(rv.indexOf(id) === -1 && logL[id][1] < rt) logR[id] = [0, rt]; });
+  }
+  const log = Object.assign({}, logL);
+  Object.keys(logR).forEach(id=>{ const b = logR[id]; if(Array.isArray(b) && (!log[id] || b[1] > log[id][1])) log[id] = b; });
+  const v = local.filter(id => log[id] && log[id][0]);
+  Object.keys(log).forEach(id=>{ if(log[id][0] && v.indexOf(id) === -1) v.push(id); });
+  return {v: (lv === null && v.length === 0) ? null : v, log: log};
+}
+
 // Fusiona lo que hay en este dispositivo con lo que hay en la nube.
 //  - historial y vistas: se juntan (unión), nunca se pierde nada.
-//  - falladas y marcadas: gana el cambio más reciente (para que quitar una marca se propague); en la
-//    primera vez que se entra con una cuenta en un dispositivo se juntan, para no perder lo ya guardado.
+//  - falladas y marcadas: pregunta a pregunta, gana el cambio más reciente (ver fusionarLista).
 //  - examen en curso: gana el cambio más reciente (también si se descartó o terminó).
 function fusionarConNube(remoto, primera){
   const res = {doc:{}, cambiaLocal:false, cambiaRemoto:false, aplicar:[]};
@@ -1708,12 +1738,15 @@ function fusionarConNube(remoto, primera){
     const r = remoto && remoto[k] ? remoto[k] : null;
     const rv = r && r.v !== undefined ? r.v : null;
     const rt = r ? (r.t || 0) : 0;
-    let v, t;
-    if(k === 'f11_historial'){
+    let v, t, log = null;
+    if(CLAVES_POR_ID.indexOf(k) !== -1){
+      const f = fusionarLista(k, lv, r, rt);
+      v = f.v; log = f.log; t = Math.max(lt, rt);
+    }else if(k === 'f11_historial'){
       v = (lv === null && rv === null) ? null :
         unirListas(lv, rv, x=>x && x.fecha).sort((a,b)=> String(a.fecha).localeCompare(String(b.fecha)));
       t = Math.max(lt, rt);
-    }else if(k === 'f11_vistas' || (primera && (k === 'f11_falladas' || k === 'f11_marcadas'))){
+    }else if(k === 'f11_vistas'){
       v = (lv === null && rv === null) ? null : unirListas(lv, rv, x=>x);
       t = Math.max(lt, rt);
     }else{
@@ -1722,11 +1755,11 @@ function fusionarConNube(remoto, primera){
     // no pisar el examen que se está haciendo ahora mismo en este dispositivo
     if(k === 'f11_progreso' && activo && rt > lt){ res.doc[k] = r; return; }
     const cambiaLocal = !mismoValor(v, lv);
-    const cambiaRemoto = !mismoValor(v, rv) || t !== rt;
+    const cambiaRemoto = !mismoValor(v, rv) || t !== rt || (log !== null && !mismoValor(log, r && r.log));
     if(cambiaLocal) res.cambiaLocal = true;
     if(cambiaRemoto) res.cambiaRemoto = true;
-    res.aplicar.push({k, v, t, cambiaLocal});
-    if(v !== null || t > 0) res.doc[k] = {v: v, t: t};
+    res.aplicar.push({k, v, t, cambiaLocal, log});
+    if(v !== null || t > 0) res.doc[k] = log !== null ? {v: v, t: t, log: log} : {v: v, t: t};
   });
   return res;
 }
@@ -1736,19 +1769,21 @@ function aplicarFusion(res){
       if(a.cambiaLocal){
         if(a.v === null) localStorage.removeItem(a.k); else localStorage.setItem(a.k, JSON.stringify(a.v));
       }
+      if(a.log !== null && a.log !== undefined) guardarLog(a.k, a.log);
       if(a.t > 0) setMod(a.k, a.t);
     }catch(e){}
   });
 }
 
-async function leerNube(u){
-  const r = await fetch(SYNC_URL + '/usuarios/' + u + '.json', {cache:'no-store'});
+async function leerNube(u, alSalir){
+  const r = await fetch(SYNC_URL + '/usuarios/' + u + '.json', {cache:'no-store', keepalive: !!alSalir});
   if(!r.ok) throw new Error('HTTP ' + r.status);
   return await r.json();      // null si todavía no existe
 }
-async function subirNube(u, doc){
+// «keepalive» permite que el envío termine aunque se cierre la app (el navegador lo limita a ~64 KB).
+async function subirNube(u, doc, alSalir){
   const cuerpo = JSON.stringify({actualizado: Date.now(), datos: JSON.stringify(doc)});
-  const r = await fetch(SYNC_URL + '/usuarios/' + u + '.json', {method:'PUT', headers:{'Content-Type':'application/json'}, body: cuerpo});
+  const r = await fetch(SYNC_URL + '/usuarios/' + u + '.json', {method:'PUT', headers:{'Content-Type':'application/json'}, body: cuerpo, keepalive: !!alSalir && cuerpo.length < 60000});
   if(!r.ok) throw new Error('HTTP ' + r.status);
 }
 async function sincronizar(opciones){
@@ -1760,11 +1795,11 @@ async function sincronizar(opciones){
   sync.sincronizando = true; sync.estado = 'sincronizando'; pintarEstadoUsuario();
   let ok = false, cambio = false;
   try{
-    const nube = await leerNube(u);
+    const nube = await leerNube(u, opciones.alSalir);
     const remoto = nube && nube.datos ? JSON.parse(nube.datos) : {};
     const res = fusionarConNube(remoto, !!opciones.primera);
     aplicarFusion(res);
-    if(res.cambiaRemoto || nube === null) await subirNube(u, res.doc);
+    if(res.cambiaRemoto || nube === null) await subirNube(u, res.doc, opciones.alSalir);
     sync.ultima = Date.now(); sync.estado = 'ok'; sync.error = ''; ok = true; cambio = res.cambiaLocal;
   }catch(e){
     sync.estado = 'error'; sync.error = String((e && e.message) || e);
@@ -1804,7 +1839,7 @@ function describirErrorSync(e){
 async function entrarConUsuario(u){
   let ultimo = ''; try{ ultimo = localStorage.getItem('f11_ultimo_usuario') || ''; }catch(e){}
   if(ultimo && ultimo !== u){      // otra persona usó este dispositivo: empezar limpio
-    SYNC_CLAVES.forEach(k=>{ try{ localStorage.removeItem(k); localStorage.removeItem('f11_mod_' + k); }catch(e){} });
+    SYNC_CLAVES.forEach(k=>{ try{ localStorage.removeItem(k); localStorage.removeItem('f11_mod_' + k); localStorage.removeItem(k + '_log'); }catch(e){} });
   }
   try{ localStorage.setItem('f11_usuario', u); localStorage.setItem('f11_ultimo_usuario', u); }catch(e){}
   await sincronizar({primera: ultimo !== u});
@@ -1938,10 +1973,13 @@ document.addEventListener('keydown', e=>{
 // al salir de la app se sube lo pendiente; al volver se trae lo que se haya hecho en otros dispositivos
 document.addEventListener('visibilitychange', ()=>{
   if(!getUsuario() || !SYNC_URL) return;
-  if(document.visibilityState === 'hidden'){ sincronizar(); }
+  if(document.visibilityState === 'hidden'){ sincronizar({alSalir: true}); }
   else if(Date.now() - sync.ultima > 5000){ sincronizar(); }
 });
+window.addEventListener('pagehide', ()=>{ if(getUsuario() && SYNC_URL && sync.estado === 'pendiente') sincronizar({alSalir: true}); });
 window.addEventListener('online', ()=>{ if(getUsuario() && SYNC_URL) sincronizar(); });
+// con la app abierta, se traen cada minuto los cambios hechos en otros dispositivos
+setInterval(()=>{ if(getUsuario() && SYNC_URL && document.visibilityState === 'visible' && Date.now() - sync.ultima > 50000) sincronizar(); }, 60000);
 
 // ---------- LIMPIEZA DE REGISTROS DE PREGUNTAS BORRADAS / RECICLADAS ----------
 // Cuando se borra una pregunta y su ID queda libre, se borra también todo su rastro guardado en el
