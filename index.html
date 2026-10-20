@@ -2,12 +2,12 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#0d3b66">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Examen F11">
+<meta name="apple-mobile-web-app-title" content="Teoría Ascenso F11 — CTA/RFEF">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" href="icon-192.png">
@@ -30,21 +30,21 @@ body{transition:background-color .2s,color .2s;}
 *{box-sizing:border-box;}
 body{margin:0;font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--text);}
 .container{max-width:900px;margin:0 auto;padding:20px;}
-header.app-header{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;padding:24px 20px;text-align:center;position:relative;}
+header.app-header{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;padding:calc(24px + env(safe-area-inset-top)) calc(20px + env(safe-area-inset-right)) 24px calc(20px + env(safe-area-inset-left));text-align:center;position:relative;}
 header.app-header h1{margin:0;font-size:1.5rem;}
 header.app-header p{margin:6px 0 0;opacity:.85;font-size:.9rem;}
 .docs-bar{max-width:860px;width:calc(100% - 40px);margin:12px auto 0;padding:10px 14px;background:var(--card);border:1px solid var(--border);border-radius:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
 .docs-bar .docs-title{font-weight:700;font-size:.9rem;color:var(--primary);margin-right:4px;}
 .docs-bar a{display:inline-block;padding:8px 14px;border-radius:8px;background:var(--primary);color:#fff;text-decoration:none;font-weight:600;font-size:.85rem;}
 .docs-bar a:hover{opacity:.9;}
-#btnTema{position:absolute;top:14px;right:16px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:20px;padding:6px 12px;font-size:.85rem;cursor:pointer;}
+#btnTema{position:absolute;top:calc(14px + env(safe-area-inset-top));right:calc(16px + env(safe-area-inset-right));background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:20px;padding:6px 12px;font-size:.85rem;cursor:pointer;}
 #btnTema:hover{background:rgba(255,255,255,.25);}
-#btnUsuario{position:absolute;top:14px;left:16px;max-width:46vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:20px;padding:6px 12px;font-size:.85rem;cursor:pointer;}
+#btnUsuario{position:absolute;top:calc(14px + env(safe-area-inset-top));left:calc(16px + env(safe-area-inset-left));max-width:46vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:20px;padding:6px 12px;font-size:.85rem;cursor:pointer;}
 #btnUsuario:hover{background:rgba(255,255,255,.25);}
 .card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.05);}
 h2{margin-top:0;color:var(--primary);font-size:1.15rem;}
 label{display:block;font-weight:600;margin:12px 0 6px;font-size:.92rem;}
-select,input[type=number],input[type=text]{padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:.95rem;width:100%;max-width:220px;background:var(--card);color:var(--text);}
+select,input[type=number],input[type=text]{padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:16px;width:100%;max-width:220px;background:var(--card);color:var(--text);}
 .row{display:flex;gap:16px;flex-wrap:wrap;}
 .row > div{flex:1;min-width:150px;}
 .radio-group{display:flex;gap:16px;flex-wrap:wrap;margin:8px 0;}
@@ -109,13 +109,31 @@ button:disabled{opacity:.4;cursor:not-allowed;}
 .timer-box.danger .timer-top{color:var(--red);}
 .opcion:disabled{cursor:not-allowed;opacity:1;color:var(--text);-webkit-text-fill-color:var(--text);}
 .opcion:disabled .letra{color:#fff;-webkit-text-fill-color:#fff;}
+.progress-grid .solo-ver{cursor:default;}
+.progress-grid .solo-ver:hover{opacity:1;}
+#btnMarcar{min-width:44px;min-height:44px;}
+/* Móvil: los botones de cuenta y tema van en su propia fila, encima del título */
+@media (max-width:600px){
+  header.app-header{padding-top:calc(58px + env(safe-area-inset-top));padding-bottom:16px;}
+  header.app-header h1{font-size:1.2rem;}
+  header.app-header p{font-size:.8rem;}
+  .container{padding:14px max(14px, env(safe-area-inset-right)) calc(14px + env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));}
+  .docs-bar{width:calc(100% - 28px);padding:8px 10px;gap:6px;}
+  .docs-bar a{padding:6px 10px;font-size:.8rem;}
+  .card{padding:16px;}
+}
+/* Pantallas táctiles: botones más grandes y sin textos de atajos de teclado */
+@media (pointer:coarse){
+  .progress-grid button{width:44px;height:44px;font-size:.9rem;}
+  .solo-teclado{display:none;}
+}
 </style>
 </head>
 <body>
 <header class="app-header">
   <button type="button" id="btnUsuario" title="Iniciar sesión para guardar tu progreso en la nube">👤 Entrar</button>
   <button type="button" id="btnTema" title="Cambiar tema claro/oscuro">🌙 Oscuro</button>
-  <h1>⚽ TEORÍA ASCENSO F11 — CTA/RFEF</h1>
+  <h1>⚽ Teoría Ascenso F11 — CTA/RFEF</h1>
   <p>Basados en Reglas de Juego y normativa RFEF seleccionada</p>
 </header>
 <div class="docs-bar" id="docsBar">
@@ -132,7 +150,7 @@ button:disabled{opacity:.4;cursor:not-allowed;}
 
 <script>
 // ============================================================
-// EXAMEN DE ASCENSO ARBITRAL F11 - CTA/RFEF
+// TEORÍA ASCENSO F11 — CTA/RFEF
 // Motor de la aplicación
 // ============================================================
 
@@ -141,6 +159,15 @@ const BANCO_REGLAS = BANCO.filter(q => q.bloque === 'reglas');
 const BANCO_NORMATIVA = BANCO.filter(q => q.bloque === 'normativa');
 const BANCO_POR_ID = {};
 BANCO.forEach(q => { BANCO_POR_ID[q.id] = q; });
+// Algunas preguntas no traen "fuente": se deduce del prefijo del ID (no se modifica el banco).
+function fuentePorId(id){
+  const pre = String(id).split('-')[0];
+  if(pre === 'RC') return 'ResumenReglamentoCompeticiones.pdf';
+  if(pre === 'BC') return 'Resumen_Articulos_Bases_Competicion_20-30.pdf';
+  if(/^(RJ\d+|GL|VAR)$/.test(pre)) return 'ReglasDelJuego26-27.pdf';
+  return '';
+}
+BANCO.forEach(q => { if(!q.fuente) q.fuente = fuentePorId(q.id); });
 
 function ordenNatural(a,b){
   const na = parseInt((a.match(/\d+/)||[])[0],10), nb = parseInt((b.match(/\d+/)||[])[0],10);
@@ -175,7 +202,8 @@ const state = {
   ultimaConfig: null,     // para "repetir examen"
   ultimoExamen: null,
   restante: {},          // idx -> segundos restantes (solo modo examen)
-  bloqueadas: {}         // idx -> true si el tiempo se agotó
+  finTiempo: {},         // idx -> momento (ms) en que se agota el tiempo de la pregunta en curso
+  bloqueadas: {}         // idx -> true si el tiempo se agotó o ya se pasó a la siguiente (modo examen)
 };
 
 // ---------- TEMPORIZADOR POR PREGUNTA (25-45 s, solo modo examen) ----------
@@ -188,36 +216,59 @@ function tiempoPregunta(q){
 }
 function pararTemporizador(){ if(timerId){ clearInterval(timerId); timerId = null; } }
 function iniciarTiempos(){
-  state.restante = {}; state.bloqueadas = {};
+  state.restante = {}; state.finTiempo = {}; state.bloqueadas = {};
   if(state.config && state.config.modoExamen) state.examen.forEach((q,i)=>{ state.restante[i] = tiempoPregunta(q); });
+}
+// El tiempo se cuenta con una hora límite (finTiempo), no restando segundos: así sigue corriendo
+// aunque el móvil se bloquee o se recargue la página. Solo "PAUSAR Y SALIR" lo detiene.
+function segundosRestantes(idx){
+  if(!state.finTiempo[idx]) return state.restante[idx];
+  return Math.max(0, Math.ceil((state.finTiempo[idx] - Date.now()) / 1000));
+}
+function congelarTiempo(){
+  const idx = state.actual;
+  if(state.finTiempo[idx]){ state.restante[idx] = segundosRestantes(idx); delete state.finTiempo[idx]; }
 }
 function arrancarTemporizador(){
   pararTemporizador();
   const idx = state.actual;
   if(!state.config.modoExamen || state.bloqueadas[idx]) return;
   const total = tiempoPregunta(state.examen[idx]);
-  const pintar = ()=>{
-    const box = document.getElementById('timerBox'); if(!box) return;
-    const r = state.restante[idx];
-    document.getElementById('timerTxt').textContent = '⏱ ' + r + ' s';
-    document.getElementById('timerFill').style.width = (r/total*100)+'%';
-    box.className = 'timer-box' + (r<=5 ? ' danger' : (r<=10 ? ' warn' : ''));
-  };
-  pintar();
-  timerId = setInterval(()=>{
-    state.restante[idx]--;
-    pintar();
-    if(state.restante[idx] <= 0){
-      pararTemporizador();
-      state.bloqueadas[idx] = true;
-      if(idx < state.examen.length-1){ state.actual = idx+1; renderPregunta(); }
-      else finalizarExamen();
+  if(!state.finTiempo[idx]){ state.finTiempo[idx] = Date.now() + state.restante[idx] * 1000; guardarProgreso(); }
+  const tick = ()=>{
+    const r = segundosRestantes(idx);
+    state.restante[idx] = r;
+    const box = document.getElementById('timerBox');
+    if(box){
+      document.getElementById('timerTxt').textContent = '⏱ ' + r + ' s';
+      document.getElementById('timerFill').style.width = (r/total*100)+'%';
+      box.className = 'timer-box' + (r<=5 ? ' danger' : (r<=10 ? ' warn' : ''));
     }
-  }, 1000);
+    if(r <= 0){
+      pararTemporizador();
+      avanzarExamen();
+      return false;
+    }
+    return true;
+  };
+  if(tick()) timerId = setInterval(tick, 250);
+}
+// Modo examen: al pasar a la siguiente pregunta (o al agotarse el tiempo) la actual queda cerrada
+// y no se puede volver a ella. En la última pregunta, termina el examen.
+function avanzarExamen(){
+  const idx = state.actual;
+  pararTemporizador();
+  state.bloqueadas[idx] = true;
+  delete state.finTiempo[idx];
+  if(idx < state.examen.length-1){ state.actual = idx+1; renderPregunta(); }
+  else finalizarExamen();
 }
 
-const APP_VERSION = '20261019-190944';
+const APP_VERSION = '20261020-111816';
 const app = document.getElementById('app');
+// La barra de descarga de documentos solo se muestra en la pantalla de inicio.
+function mostrarDocsBar(si){ const d = document.getElementById('docsBar'); if(d) d.classList.toggle('hidden', !si); }
+new MutationObserver(()=>{ if(!document.getElementById('btnGenerar')) mostrarDocsBar(false); }).observe(app, {childList:true});
 
 // ---------- TEMA CLARO / OSCURO ----------
 function temaGuardado(){ try{ return localStorage.getItem('f11_tema'); }catch(e){ return null; } }
@@ -284,7 +335,9 @@ function pickRandom(arr, n){
 // Las preguntas "título del artículo" / "artículo con tal título" revelan (o son reveladas por)
 // cualquier otra pregunta del mismo artículo, así que no pueden convivir en un mismo examen.
 function claveArt(q){ return q.fuente + '|' + q.articulo; }
-function esTipoArt(q){ return q.tipo === 'titulo_articulo' || q.tipo === 'numero_articulo'; }
+// El banco no trae el campo "tipo", así que se reconocen también por el enunciado.
+const RX_TIPO_ART = /lleva por t[ií]tulo|cu[aá]l es el t[ií]tulo del|qu[eé] t[ií]tulo (recibe|tiene)/i;
+function esTipoArt(q){ return q.tipo === 'titulo_articulo' || q.tipo === 'numero_articulo' || (q.bloque === 'normativa' && RX_TIPO_ART.test(q.enunciado)); }
 function pickNormativa(pool, n, ocupadas){
   const elegidas = [];
   const usadasTipo = new Set();   // artículos con pregunta de título/número
@@ -307,6 +360,7 @@ function pickNormativa(pool, n, ocupadas){
 // ---------- PANTALLA DE CONFIGURACIÓN ----------
 function renderConfig(errorMsg){
   if(typeof pararTemporizador==='function') pararTemporizador();
+  mostrarDocsBar(true);
   const totalReglasDisp = BANCO_REGLAS.length;
   const totalNormativaDisp = BANCO_NORMATIVA.length;
   const progresoGuardado = hayProgresoGuardado();
@@ -413,9 +467,11 @@ function renderConfig(errorMsg){
       </div>
       <input type="hidden" id="soloNoVistas" value="0">
 
+      ${/^https?:$/.test(location.protocol) ? '' : `
       <label>Ubicación de las Reglas de Juego en tu ordenador (opcional)</label>
       <input type="text" id="carpetaDocs" placeholder="Ej.: C:\Users\Ivan\Descargas   ó   /Users/ivan/Descargas" value="${carpetaDocs().replace(/"/g,'&quot;')}" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;">
       <div class="info-text">Escribe la carpeta (o la ruta completa del PDF) y se usará para abrir el documento que justifica cada respuesta. Se recuerda para la próxima vez.</div>
+      `}
 
       ${errorMsg ? `<div class="error-box">${errorMsg}</div>` : ''}
 
@@ -433,7 +489,8 @@ function renderConfig(errorMsg){
     </div>
   `;
 
-  document.getElementById('carpetaDocs').addEventListener('input', e=>guardarCarpetaDocs(e.target.value));
+  const inpCarpeta = document.getElementById('carpetaDocs');
+  if(inpCarpeta) inpCarpeta.addEventListener('input', e=>guardarCarpetaDocs(e.target.value));
 
   document.querySelectorAll('#distGroup button').forEach(btn=>{
     btn.addEventListener('click', ()=>{
@@ -652,7 +709,7 @@ function pintarResultadosBuscador(query){
   if(!cont) return;
   if(!query.trim()){
     contador.textContent = '';
-    cont.innerHTML = '<div class="info-text">Escribe una palabra o frase (p. ej. «fuera de juego», «tanda de penales», «sala de vídeo») para buscar entre las 1175 preguntas del banco.</div>';
+    cont.innerHTML = '<div class="info-text">Escribe una palabra o frase (p. ej. «fuera de juego», «tanda de penales», «sala de vídeo») para buscar entre las ' + BANCO.length + ' preguntas del banco.</div>';
     window.__ultimaBusqueda = [];
     return;
   }
@@ -693,7 +750,7 @@ function renderBuscador(){
   document.getElementById('buscadorInput').addEventListener('input', (e)=> pintarResultadosBuscador(e.target.value));
   document.getElementById('btnPracticarBusqueda').addEventListener('click', ()=>{
     const ids = (window.__ultimaBusqueda||[]).slice(0,60).map(q=>q.id);
-    if(ids.length === 0){ alert('Escribe algo en el buscador y espera a que aparezcan resultados antes de practicar.'); return; }
+    if(ids.length === 0){ avisoEnPantalla('Escribe algo en el buscador y espera a que aparezcan resultados antes de practicar.'); return; }
     generarExamenDesdeIds(ids, false);
   });
   document.getElementById('buscadorInput').focus();
@@ -753,6 +810,22 @@ function confirmarEnPantalla(btn, mensaje, textoSi, onSi){
   caja.querySelector('[data-no]').addEventListener('click', ()=>{ caja.remove(); btn.style.display = ''; });
 }
 
+// Aviso dentro de la página (en lugar de alert(), que algunos navegadores integrados bloquean).
+function cerrarAvisoPantalla(){ const a = document.getElementById('avisoPantalla'); if(a) a.remove(); }
+function avisoEnPantalla(texto, textoBoton, alCerrar){
+  cerrarAvisoPantalla();
+  const ov = document.createElement('div');
+  ov.id = 'avisoPantalla';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:3000;display:flex;align-items:center;justify-content:center;padding:16px;';
+  ov.innerHTML = '<div class="card" style="max-width:420px;width:100%;margin:0;max-height:90vh;overflow:auto;">' +
+    '<div style="white-space:pre-line;line-height:1.5;">' + texto + '</div>' +
+    '<button type="button" class="btn-primary" id="btnAvisoOk" style="width:100%;margin-top:14px;">' + (textoBoton || 'ENTENDIDO') + '</button></div>';
+  const cerrar = ()=>{ cerrarAvisoPantalla(); if(alCerrar) alCerrar(); };
+  ov.addEventListener('click', e=>{ if(e.target === ov) cerrarAvisoPantalla(); });
+  document.body.appendChild(ov);
+  document.getElementById('btnAvisoOk').addEventListener('click', cerrar);
+}
+
 function getHistorial(){ return leerJSON('f11_historial', []); }
 function addHistorial(entry){ const h = getHistorial(); h.push(entry); guardarJSON('f11_historial', h); }
 function clearHistorial(){ guardarJSON('f11_historial', []); }
@@ -779,11 +852,13 @@ function toggleMarcada(id){
 
 // ---------- COBERTURA DEL BANCO (preguntas ya vistas alguna vez) ----------
 function getVistas(){ return leerJSON('f11_vistas', []).filter(id => !!BANCO_POR_ID[id]); }
+// Se llama al mostrar cada pregunta en pantalla (no al generar el examen).
 function marcarVistas(ids){
   if(!ids || ids.length === 0) return;
   const v = new Set(getVistas());
+  const antes = v.size;
   ids.forEach(id => v.add(id));
-  guardarJSON('f11_vistas', Array.from(v));
+  if(v.size !== antes) guardarJSON('f11_vistas', Array.from(v));
 }
 function calcularCobertura(){
   const vistasSet = new Set(getVistas());
@@ -816,6 +891,7 @@ function guardarProgreso(){
     actual: state.actual,
     config: state.config,
     restante: state.restante,
+    finTiempo: state.finTiempo,
     bloqueadas: state.bloqueadas,
     ultimaConfig: state.ultimaConfig,
     guardadoEn: new Date().toISOString()
@@ -834,6 +910,7 @@ function continuarProgreso(){
   state.actual = p.actual || 0;
   state.config = p.config || {modoExamen:false};
   state.restante = p.restante || {};
+  state.finTiempo = p.finTiempo || {};
   state.bloqueadas = p.bloqueadas || {};
   state.ultimaConfig = p.ultimaConfig || null;
   state.finalizado = false;
@@ -845,9 +922,10 @@ function borrarProgreso(){ try{ localStorage.removeItem(CLAVE_PROGRESO); }catch(
 // y vuelve al inicio, donde aparece "Continuar donde lo dejaste".
 function pausarExamen(){
   pararTemporizador();
+  congelarTiempo();
   guardarProgreso();
   state.examen = []; state.respuestas = {}; state.comprobadas = {};
-  state.restante = {}; state.bloqueadas = {}; state.actual = 0;
+  state.restante = {}; state.finTiempo = {}; state.bloqueadas = {}; state.actual = 0;
   renderConfig();
 }
 
@@ -878,58 +956,60 @@ function calcularStats(examen, respuestas){
   return {total, aciertos, errores, sinResponder, pct, statsPorBloque, statsPorRegla, statsPorNivel};
 }
 
+// Devuelve una copia de la pregunta del banco con las opciones A/B/C en orden aleatorio.
+function barajarOpciones(q){
+  const letras = ['A','B','C'];
+  const mezcladas = shuffle(letras);
+  const nuevasOpciones = {};
+  const correctaTexto = q.opciones[q.correcta];
+  mezcladas.forEach((letraOriginal, idx)=>{
+    nuevasOpciones[letras[idx]] = q.opciones[letraOriginal];
+  });
+  return Object.assign({}, q, {opciones: nuevasOpciones, correctaTexto: correctaTexto});
+}
+
 // Genera un examen a partir de una lista concreta de IDs (repasar falladas / marcadas)
 function generarExamenDesdeIds(ids, modoExamen){
   let preguntas = ids.map(id => BANCO_POR_ID[id]).filter(Boolean);
   if(preguntas.length === 0) return false;
-  preguntas = shuffle(preguntas).map(q=>{
-    const letras = ['A','B','C'];
-    const mezcladas = shuffle(letras);
-    const nuevasOpciones = {};
-    const correctaTexto = q.opciones[q.correcta];
-    mezcladas.forEach((letraOriginal, idx)=>{
-      const letraNueva = letras[idx];
-      nuevasOpciones[letraNueva] = q.opciones[letraOriginal];
-    });
-    return Object.assign({}, q, {opciones: nuevasOpciones, correctaTexto: correctaTexto});
-  });
+  preguntas = shuffle(preguntas).map(barajarOpciones);
   state.examen = preguntas;
   state.respuestas = {}; state.comprobadas = {}; state.actual = 0; state.finalizado = false;
   state.config = {modoExamen: !!modoExamen, esRepaso: true, total: preguntas.length};
   state.ultimaConfig = null;
   state.ultimoExamen = preguntas;
-  marcarVistas(preguntas.map(q=>q.id));
   iniciarTiempos();
   renderPregunta();
   return true;
 }
 function urlDesdeRuta(fuente, pag){
+  if(/^https?:$/.test(location.protocol)) return encodeURI(fuente)+'#page='+pag;   // PDF alojado en la propia web
   let r = carpetaDocs().trim().replace(/^["']|["']$/g,'').replace(/\\/g,'/');
-  if(!r){
-    if(/^https?:$/.test(location.protocol)) return encodeURI(fuente)+'#page='+pag;   // PDF alojado en la propia web
-    return null;
-  }
+  if(!r) return null;
   if(/\.pdf$/i.test(r)) r = r.replace(/\/[^\/]*$/,'');   // si pegó la ruta de un PDF, quitar el nombre
   r = r.replace(/\/+$/,'');
   const base = /^[A-Za-z]:/.test(r) ? 'file:///'+r : (r.startsWith('/') ? 'file://'+r : 'file:///'+r);
   return encodeURI(base+'/'+fuente)+'#page='+pag;
 }
 function cerrarVisor(){ const v=document.getElementById('visorDoc'); if(v) v.remove(); }
+// En móvil los PDF no se ven dentro de la página (Android no los muestra en un iframe), así que se abren
+// en una pestaña nueva. En ordenador, si el PDF está guardado en el navegador, se ve en el visor.
+function esPantallaTactil(){ return window.matchMedia && window.matchMedia('(pointer:coarse)').matches; }
 function abrirDoc(fuente, pag){
   cerrarVisor();
-  if(!pdfUrls[fuente]){
-    const u = urlDesdeRuta(fuente, pag);
-    if(u){ const w = window.open(u,'_blank'); if(w) return; }
-  }
+  const guardado = pdfUrls[fuente] ? pdfUrls[fuente] + '#page=' + pag : null;
+  const externo = guardado || urlDesdeRuta(fuente, pag);
+  if(externo && (!guardado || esPantallaTactil())){ const w = window.open(externo,'_blank'); if(w) return; }
   const v=document.createElement('div'); v.id='visorDoc';
-  v.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;display:flex;align-items:center;justify-content:center;padding:12px;';
-  const url = pdfUrls[fuente];
-  v.innerHTML = `<div style="background:#fff;border-radius:10px;width:min(1000px,100%);height:100%;display:flex;flex-direction:column;overflow:hidden;">
+  v.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;display:flex;align-items:center;justify-content:center;padding:calc(12px + env(safe-area-inset-top)) 12px calc(12px + env(safe-area-inset-bottom));';
+  v.addEventListener('click', e=>{ if(e.target === v) cerrarVisor(); });
+  const url = guardado && !esPantallaTactil() ? pdfUrls[fuente] : null;
+  v.innerHTML = `<div style="background:var(--card);color:var(--text);border-radius:10px;width:min(1000px,100%);height:${url ? '100%' : 'auto'};max-height:100%;display:flex;flex-direction:column;overflow:auto;">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border);flex-wrap:wrap;">
       <strong style="font-size:.9rem;">${fuente} · pág. ${pag}</strong>
-      <span>${url?`<a href="${url}#page=${pag}" target="_blank" style="margin-right:12px;">Abrir en pestaña nueva</a>`:''}<button class="btn-danger" style="padding:6px 12px;" onclick="cerrarVisor()">✖ Cerrar</button></span>
+      <span>${url?`<a href="${url}#page=${pag}" target="_blank" style="margin-right:12px;color:var(--accent);">Abrir en pestaña nueva</a>`:''}<button class="btn-danger" style="padding:6px 12px;" onclick="cerrarVisor()">✖ Cerrar</button></span>
     </div>
-    ${url ? `<iframe src="${url}#page=${pag}" style="flex:1;border:0;width:100%;"></iframe>` :
+    ${url ? `<iframe src="${url}#page=${pag}" style="flex:1;border:0;width:100%;"></iframe>` : externo ? `<div style="padding:24px;"><p>El navegador no ha dejado abrir una pestaña nueva.</p><a class="btn-primary" href="${externo}" target="_blank" rel="noopener" style="display:inline-block;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600;">📄 Abrir ${fuente} (pág. ${pag})</a><p class="info-text">Si el visor del móvil no salta solo a la página, ve a la pág. ${pag} a mano.</p></div>` :
      `<div style="padding:24px;"><p>${carpetaDocs() ? 'Tu navegador ha bloqueado abrir la ruta escrita. ' : 'Aún no has indicado la ubicación de los documentos (puedes hacerlo en la pantalla de configuración). '}Alternativa: <strong>selecciona el archivo ${fuente}</strong> desde donde lo tengas descargado; quedará guardado en este navegador.</p>
       ${carpetaDocs() ? `<p class="info-text">Ruta intentada: ${urlDesdeRuta(fuente,pag)}</p>` : ''}
       <input type="file" accept="application/pdf" id="filePdf" multiple>
@@ -1082,17 +1162,7 @@ function generarExamen(nReglas, nNormativa, modo, niveles, temasReglas, temasNor
   // La corrección nunca depende de qué letra le toque a cada opción: guardamos
   // el TEXTO literal de la respuesta correcta (correctaTexto), fijado antes de
   // barajar, y toda comprobación posterior compara contra ese texto.
-  seleccion = seleccion.map(q=>{
-    const letras = ['A','B','C'];
-    const mezcladas = shuffle(letras);
-    const nuevasOpciones = {};
-    const correctaTexto = q.opciones[q.correcta];
-    mezcladas.forEach((letraOriginal, idx)=>{
-      const letraNueva = letras[idx];
-      nuevasOpciones[letraNueva] = q.opciones[letraOriginal];
-    });
-    return Object.assign({}, q, {opciones: nuevasOpciones, correctaTexto: correctaTexto});
-  });
+  seleccion = seleccion.map(barajarOpciones);
 
   state.examen = seleccion;
   state.respuestas = {};
@@ -1102,15 +1172,15 @@ function generarExamen(nReglas, nNormativa, modo, niveles, temasReglas, temasNor
   state.config = {modoExamen, modoFlashcard, nReglas, nNormativa, total: nReglas+nNormativa, niveles, temasReglas, temasNorm, soloNoVistas: !!soloNoVistas};
   state.ultimaConfig = state.config;
   state.ultimoExamen = seleccion;
-  marcarVistas(seleccion.map(q=>q.id));
   iniciarTiempos();
 
   renderPregunta();
 }
 
+// Mismas preguntas, pero en otro orden y con las opciones barajadas de nuevo.
 function repetirExamen(){
   if(!state.ultimoExamen) return;
-  state.examen = state.ultimoExamen;
+  state.examen = shuffle(state.ultimoExamen).map(q => barajarOpciones(BANCO_POR_ID[q.id] || q));
   state.respuestas = {};
   state.comprobadas = {};
   state.actual = 0;
@@ -1139,8 +1209,8 @@ function renderPregunta(){
 
   const gridBotones = state.examen.map((_, i)=>{
     const contestada = state.respuestas[i] !== undefined;
-    const cls = ['', contestada ? 'answered':'', i===idx ? 'current':''].filter(Boolean).join(' ');
-    return `<button class="${cls}" data-goto="${i}">${i+1}</button>`;
+    const cls = ['', contestada ? 'answered':'', i===idx ? 'current':'', modoExamen ? 'solo-ver':''].filter(Boolean).join(' ');
+    return modoExamen ? `<button type="button" class="${cls}" tabindex="-1">${i+1}</button>` : `<button class="${cls}" data-goto="${i}">${i+1}</button>`;
   }).join('');
 
   const opcionesHtml = ['A','B','C'].map(letra=>{
@@ -1162,7 +1232,7 @@ function renderPregunta(){
       <div class="explicacion-box ${acierto?'correcta-box':'incorrecta-box'}">
         <strong>${acierto ? '✅ Correcta' : '❌ Incorrecta'}</strong> — Respuesta correcta: <strong>${letraCorrecta(q)}) ${textoCorrecto(q)}</strong><br>
         <div style="margin-top:6px;">${q.explicacion}</div>
-        <div class="info-text" style="margin-top:6px;">Referencia: ${q.referencia || q.regla || q.articulo || '-'} · Fuente: ${q.fuente}</div>
+        <div class="info-text" style="margin-top:6px;">Referencia: ${q.referencia || q.regla || q.articulo || '-'} ${q.fuente ? ' · Fuente: ' + q.fuente : ''}</div>
         <div style="margin-top:6px;">${linkFuenteHtml(q)}</div>
       </div>
     `;
@@ -1177,7 +1247,8 @@ function renderPregunta(){
         <button type="button" id="btnMarcar" title="Marcar para repasar más tarde" style="margin-left:auto;background:none;border:none;font-size:1.3rem;cursor:pointer;padding:2px 6px;">${esMarcada(q.id) ? '⭐' : '☆'}</button>
       </div>
       ${modoExamen ? `<div class="timer-box" id="timerBox"><div class="timer-top"><span id="timerTxt"></span><span>${bloq ? '⛔ Tiempo agotado: pregunta bloqueada' : 'Tiempo para esta pregunta'}</span></div><div class="timer-bar"><div class="timer-fill" id="timerFill"></div></div></div>` : ''}
-      <div class="info-text">Atajos: 1/2/3 (o A/B/C) elige opción · ← → navega · Enter ${modoExamen ? 'avanza' : (yaComprobada ? 'avanza' : 'comprueba')}.</div>
+      ${modoExamen ? `<div class="info-text">En modo examen no se puede volver atrás: al pasar a la siguiente, la respuesta queda cerrada.</div>` : ''}
+      <div class="info-text solo-teclado">Atajos: 1/2/3 elige opción · ${modoExamen ? '→ o Enter pasa a la siguiente' : '← → navega · Enter ' + (yaComprobada ? 'avanza' : 'comprueba')}.</div>
       <div class="enunciado">${q.enunciado}</div>
       ${opcionesHtml}
       ${!modoExamen ? `<button class="btn-primary" id="btnComprobar" style="margin-top:10px;" ${seleccionActual===undefined ? 'disabled':''}>COMPROBAR RESPUESTA</button>` : ''}
@@ -1185,8 +1256,8 @@ function renderPregunta(){
       <div class="progress-grid">${gridBotones}</div>
       <div class="nav-buttons">
         <div>
-          <button class="btn-outline" id="btnAnterior" ${idx===0?'disabled':''}>◀ ANTERIOR</button>
-          <button class="btn-outline" id="btnSiguiente" ${idx===total-1?'disabled':''}>SIGUIENTE ▶</button>
+          ${modoExamen ? '' : `<button class="btn-outline" id="btnAnterior" ${idx===0?'disabled':''}>◀ ANTERIOR</button>`}
+          ${modoExamen && idx===total-1 ? '' : `<button class="${modoExamen ? 'btn-primary' : 'btn-outline'}" id="btnSiguiente" ${idx===total-1?'disabled':''}>SIGUIENTE ▶</button>`}
         </div>
         <button class="btn-danger" id="btnFinalizar">FINALIZAR EXAMEN</button>
       </div>
@@ -1206,16 +1277,27 @@ function renderPregunta(){
     state.comprobadas[idx] = true;
     renderPregunta();
   });
-  document.getElementById('btnAnterior').addEventListener('click', ()=>{ state.actual--; renderPregunta(); });
-  document.getElementById('btnSiguiente').addEventListener('click', ()=>{ state.actual++; renderPregunta(); });
-  document.getElementById('btnFinalizar').addEventListener('click', finalizarExamen);
+  const btnAnterior = document.getElementById('btnAnterior');
+  if(btnAnterior) btnAnterior.addEventListener('click', ()=>{ state.actual--; renderPregunta(); });
+  const btnSiguiente = document.getElementById('btnSiguiente');
+  if(btnSiguiente) btnSiguiente.addEventListener('click', ()=>{
+    if(modoExamen){ avanzarExamen(); return; }
+    state.actual++; renderPregunta();
+  });
+  const btnFinalizar = document.getElementById('btnFinalizar');
+  btnFinalizar.addEventListener('click', ()=>{
+    const sinResponder = state.examen.filter((_, i)=> state.respuestas[i] === undefined).length;
+    const msg = '¿Finalizar el examen?' + (sinResponder ? ' Te quedan ' + sinResponder + ' pregunta' + (sinResponder===1?'':'s') + ' sin responder, que contarán como fallo.' : '') + ' Se corregirá y se guardará en el historial.';
+    confirmarEnPantalla(btnFinalizar, msg, 'SÍ, FINALIZAR', finalizarExamen);
+  });
   document.getElementById('btnPausar').addEventListener('click', pausarExamen);
   document.getElementById('btnMarcar').addEventListener('click', ()=>{ toggleMarcada(q.id); renderPregunta(); });
-  arrancarTemporizador();
   app.querySelectorAll('[data-goto]').forEach(btn=>{
     btn.addEventListener('click', ()=>{ state.actual = parseInt(btn.dataset.goto,10); renderPregunta(); });
   });
+  marcarVistas([q.id]);
   guardarProgreso();
+  arrancarTemporizador();   // al final: si el tiempo ya se agotó, pasa a la siguiente y vuelve a pintar
 }
 
 // ---------- MODO FLASHCARD ----------
@@ -1243,7 +1325,7 @@ function renderFlashcardPregunta(){
     <div class="explicacion-box correcta-box">
       <strong>✅ Respuesta correcta: ${letraCorrecta(q)}) ${textoCorrecto(q)}</strong>
       <div style="margin-top:6px;">${q.explicacion}</div>
-      <div class="info-text" style="margin-top:6px;">Referencia: ${q.referencia || q.regla || q.articulo || '-'} · Fuente: ${q.fuente}</div>
+      <div class="info-text" style="margin-top:6px;">Referencia: ${q.referencia || q.regla || q.articulo || '-'} ${q.fuente ? ' · Fuente: ' + q.fuente : ''}</div>
       <div style="margin-top:6px;">${linkFuenteHtml(q)}</div>
     </div>
   ` : '';
@@ -1256,7 +1338,7 @@ function renderFlashcardPregunta(){
         <span class="badge">${q.bloque === 'reglas' ? '⚖️ Reglas de Juego' : '📋 Normativa RFEF'} ${q.regla ? '· '+q.regla : (q.articulo? '· '+q.articulo : '')}</span>
         <button type="button" id="btnMarcar" title="Marcar para repasar más tarde" style="margin-left:auto;background:none;border:none;font-size:1.3rem;cursor:pointer;padding:2px 6px;">${esMarcada(q.id) ? '⭐' : '☆'}</button>
       </div>
-      <div class="info-text">Piensa tu respuesta y pulsa "Revelar" para comprobarla. No se guarda ningún acierto ni fallo. Atajos: Espacio/Enter revela o pasa a la siguiente · ← → navega.</div>
+      <div class="info-text">Piensa tu respuesta y pulsa "Revelar" para comprobarla. No se guarda ningún acierto ni fallo.<span class="solo-teclado"> Atajos: Espacio/Enter revela o pasa a la siguiente · ← → navega.</span></div>
       <div class="enunciado">${q.enunciado}</div>
       ${opcionesHtml}
       ${!revelada ? `<button class="btn-primary" id="btnRevelar" style="margin-top:10px;">👁 REVELAR RESPUESTA</button>` : ''}
@@ -1283,6 +1365,7 @@ function renderFlashcardPregunta(){
   app.querySelectorAll('[data-goto]').forEach(btn=>{
     btn.addEventListener('click', ()=>{ state.actual = parseInt(btn.dataset.goto,10); renderPregunta(); });
   });
+  marcarVistas([q.id]);
   guardarProgreso();
 }
 function finalizarFlashcard(){
@@ -1359,14 +1442,14 @@ function renderResultados(){
         </div>
         <div class="explicacion-box" style="margin-top:8px;">
           <strong>Explicación:</strong> ${q.explicacion}<br>
-          <div class="info-text" style="margin-top:4px;">Referencia: ${q.referencia || q.regla || q.articulo || '-'} · Fuente: ${q.fuente}</div>
+          <div class="info-text" style="margin-top:4px;">Referencia: ${q.referencia || q.regla || q.articulo || '-'} ${q.fuente ? ' · Fuente: ' + q.fuente : ''}</div>
           <div style="margin-top:6px;">${linkFuenteHtml(q)}</div>
         </div>
       </div>
     `;
   }).join('');
 
-  const reglasStatsHtml = Object.keys(statsPorRegla).sort().map(k=>{
+  const reglasStatsHtml = Object.keys(statsPorRegla).sort(ordenNatural).map(k=>{
     const s = statsPorRegla[k];
     return `<div class="stat-row"><span>${k}</span><span>${s.ok}/${s.total}</span></div>`;
   }).join('');
@@ -1428,6 +1511,9 @@ function renderResultados(){
 document.addEventListener('keydown', function(e){
   const tag = (document.activeElement && document.activeElement.tagName) || '';
   if(tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+  if(e.ctrlKey || e.metaKey || e.altKey) return;   // no interferir con Ctrl+C, Ctrl+A, etc.
+  if(tag === 'BUTTON' && (e.key === 'Enter' || e.key === ' ')) return;   // que el botón con foco haga lo suyo
+  if(document.getElementById('panelUsuario') || document.getElementById('avisoPantalla')) return;
   if(!state.examen || state.examen.length === 0 || state.finalizado) return;
 
   const idx = state.actual;
@@ -1447,8 +1533,8 @@ document.addEventListener('keydown', function(e){
     return;
   }
 
-  const mapaLetra = {'1':'A','2':'B','3':'C','a':'A','b':'B','c':'C'};
-  const letra = mapaLetra[e.key.toLowerCase()];
+  const mapaLetra = {'1':'A','2':'B','3':'C'};
+  const letra = mapaLetra[e.key];
   if(letra && !state.bloqueadas[idx]){
     if(!modoExamenBool && state.comprobadas[idx]) return; // ya comprobada en estudio: no se puede cambiar
     e.preventDefault();
@@ -1456,11 +1542,16 @@ document.addEventListener('keydown', function(e){
     renderPregunta();
     return;
   }
+  if(modoExamenBool){
+    // sin vuelta atrás; en la última pregunta se finaliza con el botón (que pide confirmación)
+    if((e.key === 'ArrowRight' || e.key === 'Enter') && idx < total-1){ e.preventDefault(); avanzarExamen(); }
+    return;
+  }
   if(e.key === 'ArrowRight' && idx < total-1){ e.preventDefault(); state.actual++; renderPregunta(); return; }
   if(e.key === 'ArrowLeft' && idx > 0){ e.preventDefault(); state.actual--; renderPregunta(); return; }
   if(e.key === 'Enter'){
     e.preventDefault();
-    if(!modoExamenBool && !state.comprobadas[idx] && state.respuestas[idx] !== undefined){
+    if(!state.comprobadas[idx] && state.respuestas[idx] !== undefined){
       state.comprobadas[idx] = true; renderPregunta(); return;
     }
     if(idx < total-1){ state.actual++; renderPregunta(); }
@@ -1483,26 +1574,45 @@ document.querySelectorAll('#docsBar a[data-pdf]').forEach(a=>{
         return;
       }
     }catch(err){}
-    alert('Este documento todavía no está subido a la web (o se subió con otro nombre).\n\nTe abro la web oficial del IFAB, donde puedes descargar las Reglas de Juego.');
-    window.open('https://www.theifab.com/es/laws-of-the-game-documents/?language=all&year=2026%2F27', '_blank', 'noopener');
+    avisoEnPantalla('Este documento todavía no está subido a la web (o se subió con otro nombre).\n\nEn la web oficial del IFAB puedes descargar las Reglas de Juego.', 'IR A LA WEB DEL IFAB', ()=>{
+      window.open('https://www.theifab.com/es/laws-of-the-game-documents/?language=all&year=2026%2F27', '_blank', 'noopener');
+    });
   });
 });
 
 // ---------- COMPROBAR NUEVA VERSIÓN ----------
 let _versionOfrecida = null;
 function hayExamenEnCurso(){ return !!(state.examen && state.examen.length > 0 && !state.finalizado); }
+let _recargandoParaActualizar = false;
 function aplicarActualizacion(ver){
+  _recargandoParaActualizar = true;   // el progreso ya está guardado: no preguntar "¿salir de la página?"
+  try{ sessionStorage.setItem('f11_actualizando_a', ver); }catch(e){}
   const sep = location.pathname + '?v=' + encodeURIComponent(ver);
   location.replace(sep);
+}
+// Si ya se recargó para ir a esta versión y seguimos en la antigua (el servidor aún sirve la copia
+// vieja), no se vuelve a intentar en esta sesión: así no hay bucles de recargas.
+function yaSeIntentoActualizar(ver){ try{ return sessionStorage.getItem('f11_actualizando_a') === ver; }catch(e){ return false; } }
+// Solo se actualiza sola en la pantalla de inicio sin estar escribiendo; en el resto se avisa.
+function puedeActualizarSola(){
+  const tag = (document.activeElement && document.activeElement.tagName) || '';
+  return !!document.getElementById('btnGenerar') && tag !== 'INPUT' && !document.getElementById('panelUsuario') && !document.getElementById('avisoPantalla') && !document.getElementById('visorDoc');
 }
 function mostrarAvisoActualizacion(ver){
   if(document.getElementById('avisoActualizar')) return;
   const b = document.createElement('div');
   b.id = 'avisoActualizar';
   b.style.cssText = 'position:fixed;left:12px;right:12px;bottom:12px;z-index:2000;background:var(--primary);color:#fff;border-radius:10px;padding:12px 14px;display:flex;gap:10px;align-items:center;justify-content:space-between;box-shadow:0 4px 16px rgba(0,0,0,.35);flex-wrap:wrap;';
-  b.innerHTML = '<span style="font-size:.9rem;">🔄 Hay una versión nueva de la app. Termina tu examen y actualiza cuando quieras.</span><button id="btnActualizarYa" style="background:#fff;color:var(--primary);padding:8px 14px;">Actualizar ahora</button>';
+  b.style.bottom = 'calc(12px + env(safe-area-inset-bottom))';
+  b.innerHTML = '<span style="font-size:.9rem;">🔄 Hay una versión nueva de la app.' + (hayExamenEnCurso() ? ' Termina tu examen y actualiza cuando quieras (el progreso queda guardado).' : '') + '</span>' +
+    '<span style="display:flex;gap:8px;"><button id="btnActualizarLuego" style="background:transparent;color:#fff;border:1px solid rgba(255,255,255,.6);padding:8px 14px;">Más tarde</button>' +
+    '<button id="btnActualizarYa" style="background:#fff;color:var(--primary);padding:8px 14px;">Actualizar ahora</button></span>';
   document.body.appendChild(b);
-  document.getElementById('btnActualizarYa').addEventListener('click', ()=>aplicarActualizacion(ver));
+  document.getElementById('btnActualizarYa').addEventListener('click', ()=>{
+    if(hayExamenEnCurso()){ pararTemporizador(); congelarTiempo(); guardarProgreso(); }   // como "pausar": el tiempo no corre durante la recarga
+    aplicarActualizacion(ver);
+  });
+  document.getElementById('btnActualizarLuego').addEventListener('click', ()=>{ _versionOfrecida = ver; b.remove(); });
 }
 async function comprobarActualizacion(){
   if(!/^https?:$/.test(location.protocol)) return;
@@ -1511,9 +1621,9 @@ async function comprobarActualizacion(){
     if(!r.ok) return;
     const t = await r.text();
     const m = t.match(/APP_VERSION = '(\d{8}-\d{6})'/);
-    if(!m || m[1] === APP_VERSION) return;
-    if(hayExamenEnCurso()) mostrarAvisoActualizacion(m[1]);   // no interrumpir un examen: el progreso queda guardado
-    else aplicarActualizacion(m[1]);
+    if(!m || m[1] === APP_VERSION || m[1] === _versionOfrecida || yaSeIntentoActualizar(m[1])) return;
+    if(!hayExamenEnCurso() && puedeActualizarSola()) aplicarActualizacion(m[1]);
+    else mostrarAvisoActualizacion(m[1]);   // no interrumpir: se avisa y la persona decide
   }catch(e){}
 }
 setTimeout(comprobarActualizacion, 2500);
@@ -1544,8 +1654,8 @@ if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
   btn.addEventListener('click', async e=>{
     e.preventDefault();
     if(evInstalar){ evInstalar.prompt(); try{ await evInstalar.userChoice; }catch(_){} evInstalar = null; return; }
-    if(esIOS){ alert('Para instalarla en iPhone/iPad:\n\n1. Abre esta página en Safari.\n2. Pulsa el botón Compartir (el cuadrado con la flecha hacia arriba).\n3. Elige "Añadir a pantalla de inicio".\n4. Pulsa "Añadir".'); return; }
-    alert('Para instalarla: abre el menú del navegador (⋮) y elige "Instalar aplicación" o "Añadir a pantalla de inicio".');
+    if(esIOS){ avisoEnPantalla('Para instalarla en iPhone/iPad:\n\n1. Abre esta página en Safari.\n2. Pulsa el botón Compartir (el cuadrado con la flecha hacia arriba).\n3. Elige «Añadir a pantalla de inicio».\n4. Pulsa «Añadir».'); return; }
+    avisoEnPantalla('Para instalarla: abre el menú del navegador (⋮) y elige «Instalar aplicación» o «Añadir a pantalla de inicio».');
   });
 })();
 
@@ -1816,6 +1926,8 @@ document.getElementById('btnUsuario').addEventListener('click', abrirPanelUsuari
 // "PAUSAR Y SALIR" durante un examen, o que "VOLVER" en resultados, repaso y demás pantallas.
 document.addEventListener('keydown', e=>{
   if(e.key !== 'Escape') return;
+  if(document.getElementById('avisoPantalla')){ cerrarAvisoPantalla(); return; }
+  if(document.getElementById('visorDoc')){ cerrarVisor(); return; }
   if(document.getElementById('panelUsuario')){ cerrarPanelUsuario(); return; }
   const no = document.querySelector('[data-no]');
   if(no){ no.click(); return; }
@@ -1857,7 +1969,7 @@ limpiarRegistrosReciclados();
 // (El progreso ya se guarda solo, pero esto evita cierres accidentales.)
 window.addEventListener('beforeunload', function(e){
   const examenActivo = state.examen && state.examen.length > 0 && !state.finalizado;
-  if(examenActivo){
+  if(examenActivo && !_recargandoParaActualizar){
     e.preventDefault();
     e.returnValue = '';
     return '';

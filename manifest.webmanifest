@@ -1,6 +1,6 @@
 {
-  "name": "Examen de Ascenso Arbitral F11",
-  "short_name": "Examen F11",
+  "name": "Teoría Ascenso F11 — CTA/RFEF",
+  "short_name": "Teoría Ascenso F11 — CTA/RFEF",
   "description": "Práctica de exámenes de ascenso arbitral F11 (Reglas de Juego y normativa RFEF).",
   "start_url": "./",
   "scope": "./",
