@@ -1,0 +1,8 @@
+[Desktop Entry]
+Version=1.0
+Terminal=false
+Type=Application
+Name=Teoría Ascenso F11 — CTA/RFEF
+Exec=/opt/google/chrome/google-chrome --profile-directory=Default --app-id=cbpblaefeacglndfmfmmjflipgkppgdb
+Icon=chrome-cbpblaefeacglndfmfmmjflipgkppgdb-Default
+StartupWMClass=crx_cbpblaefeacglndfmfmmjflipgkppgdb
