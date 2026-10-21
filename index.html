@@ -273,7 +273,7 @@ function avanzarExamen(){
   else finalizarExamen();
 }
 
-const APP_VERSION = '20261021-093540';
+const APP_VERSION = '20261021-094049';
 const app = document.getElementById('app');
 // La barra de descarga de documentos solo se muestra en la pantalla de inicio.
 function mostrarDocsBar(si){ const d = document.getElementById('docsBar'); if(d) d.classList.toggle('hidden', !si); }
@@ -1783,17 +1783,35 @@ function mostrarAvisoActualizacion(ver){
   });
   document.getElementById('btnActualizarLuego').addEventListener('click', ()=>{ _versionOfrecida = ver; b.remove(); });
 }
+// Para no descargar el index.html entero (≈1 MB) en cada comprobación, primero se pide solo la
+// cabecera (HEAD, ≈1 KB): si su firma (ETag o fecha + tamaño) no ha cambiado desde la última
+// descarga revisada, no hay versión nueva. Solo cuando cambia se descarga para leer APP_VERSION.
+let _firmaIndex = null, _comprobando = false;
+function firmaDe(r){
+  const f = (r.headers.get('etag') || '') + '|' + (r.headers.get('last-modified') || '') + '|' + (r.headers.get('content-length') || '');
+  return f === '||' ? null : f;
+}
 async function comprobarActualizacion(){
-  if(!/^https?:$/.test(location.protocol)) return;
+  if(!/^https?:$/.test(location.protocol) || _comprobando) return;
+  _comprobando = true;
   try{
-    const r = await fetch('index.html?_=' + Date.now(), {cache:'no-store'});
+    const url = 'index.html?_=' + Date.now();
+    if(_firmaIndex){
+      const h = await fetch(url, {method:'HEAD', cache:'no-store'});
+      if(h.ok && firmaDe(h) === _firmaIndex) return;
+    }
+    const r = await fetch(url, {cache:'no-store'});
     if(!r.ok) return;
     const t = await r.text();
     const m = t.match(/APP_VERSION = '(\d{8}-\d{6})'/);
-    if(!m || m[1] === APP_VERSION || m[1] === _versionOfrecida || yaSeIntentoActualizar(m[1])) return;
+    if(!m) return;
+    // Esta copia ya está revisada: no se vuelve a descargar mientras el servidor no cambie
+    _firmaIndex = firmaDe(r);
+    if(m[1] === APP_VERSION || m[1] === _versionOfrecida || yaSeIntentoActualizar(m[1])) return;
     if(!hayExamenEnCurso() && puedeActualizarSola()) aplicarActualizacion(m[1]);
     else mostrarAvisoActualizacion(m[1]);   // no interrumpir: se avisa y la persona decide
-  }catch(e){}
+  }catch(e){
+  }finally{ _comprobando = false; }
 }
 setTimeout(comprobarActualizacion, 2500);
 document.addEventListener('visibilitychange', ()=>{
@@ -1802,7 +1820,7 @@ document.addEventListener('visibilitychange', ()=>{
     if('serviceWorker' in navigator) navigator.serviceWorker.getRegistration().then(r=>r && r.update()).catch(()=>{});
   }
 });
-setInterval(comprobarActualizacion, 5*60*1000);
+setInterval(()=>{ if(document.visibilityState === 'visible') comprobarActualizacion(); }, 60*1000);   // cada minuto, solo con la app en pantalla
 
 // ---------- INSTALAR COMO APP (service worker) ----------
 if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
