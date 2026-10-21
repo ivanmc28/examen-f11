@@ -98,6 +98,15 @@ button:disabled{opacity:.4;cursor:not-allowed;}
 .nivel-opt{display:flex !important;align-items:flex-start;gap:8px;border:1px solid var(--border);border-radius:8px;padding:10px;font-weight:500 !important;margin:0 !important;background:var(--soft);}
 .nivel-opt small{display:block;color:var(--muted);font-weight:400;margin-top:2px;line-height:1.3;}
 .tag-nivel{background:var(--amber-bg);color:var(--amber-text);}
+.busq-filtros{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:12px;}
+.busq-filtros label{margin:0 0 4px;font-size:.8rem;}
+.busq-filtros select{max-width:100%;}
+.busq-niveles{display:flex;gap:6px;flex-wrap:wrap;}
+.busq-niveles button{flex:1;min-width:44px;padding:8px 6px;border:1px solid var(--border);border-radius:6px;background:var(--soft);color:var(--text);font-size:.85rem;cursor:pointer;}
+.busq-niveles button.active{background:var(--primary);border-color:var(--primary);color:#fff;}
+.busq-entendido{font-size:.82rem;margin-top:8px;color:var(--muted);}
+.busq-entendido .tag{margin-top:4px;}
+mark{background:var(--amber-bg);color:inherit;border-radius:3px;padding:0 1px;}
 .info-text{font-size:.82rem;color:var(--muted);margin-top:4px;}
 
 .timer-box{margin-bottom:14px;}
@@ -264,7 +273,7 @@ function avanzarExamen(){
   else finalizarExamen();
 }
 
-const APP_VERSION = '20261021-085923';
+const APP_VERSION = '20261021-091435';
 const app = document.getElementById('app');
 // La barra de descarga de documentos solo se muestra en la pantalla de inicio.
 function mostrarDocsBar(si){ const d = document.getElementById('docsBar'); if(d) d.classList.toggle('hidden', !si); }
@@ -687,73 +696,264 @@ function renderMarcadas(){
   });
 }
 
-// ---------- BUSCADOR DE TEXTO LIBRE EN EL BANCO ----------
+// ---------- BUSCADOR DEL BANCO (palabras + filtros por regla, artículo, nivel y estado) ----------
 function normalizarTexto(s){
-  return (s||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  return (s||'').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
 }
-function buscarEnBanco(query){
-  const q = normalizarTexto(query).trim();
-  if(!q) return [];
-  const terminos = q.split(/\s+/).filter(Boolean);
-  return BANCO.filter(preg=>{
-    const texto = normalizarTexto([
-      preg.enunciado, preg.opciones.A, preg.opciones.B, preg.opciones.C,
-      preg.explicacion, preg.regla, preg.articulo, preg.referencia
-    ].filter(Boolean).join(' | '));
-    return terminos.every(t => texto.includes(t));
+const TITULOS_REGLAS = {1:'El terreno de juego',2:'El balón',3:'Los jugadores',4:'El equipamiento de los jugadores',5:'El árbitro',
+  6:'Los otros miembros del equipo arbitral',7:'La duración del partido',8:'Inicio y reanudación del juego',9:'Balón en juego',
+  10:'El resultado de un partido',11:'El fuera de juego',12:'Faltas y conducta incorrecta',13:'Tiros libres',14:'El penal',
+  15:'El saque de banda',16:'El saque de meta',17:'El saque de esquina'};
+const PALABRAS_VACIAS = new Set('el la los las lo un una unos unas de del al a en y e o u que por para con sin se su sus es son'.split(' '));
+const NIVEL_POR_PALABRA = {basica:1,basico:1,facil:1,media:2,medio:2,alta:3,alto:3,dificil:3,experta:4,experto:4};
+
+// Texto normalizado de cada pregunta, por campos, calculado una sola vez
+const INDICE_BUSQUEDA = {};
+function indiceDe(q){
+  return INDICE_BUSQUEDA[q.id] || (INDICE_BUSQUEDA[q.id] = {
+    enunciado: ' ' + normalizarTexto(q.enunciado),
+    opciones: ' ' + normalizarTexto([q.opciones.A, q.opciones.B, q.opciones.C].join(' | ')),
+    resto: ' ' + normalizarTexto([q.explicacion, q.referencia, q.regla, q.articulo].filter(Boolean).join(' | '))
   });
 }
-function pintarResultadosBuscador(query){
+
+// Separa lo que el usuario escribe en filtros reconocidos y palabras/frases a buscar
+function interpretarBusqueda(texto){
+  let s = ' ' + normalizarTexto(texto).replace(/(\d)\.(\d)/g, '$1,$2') + ' ';
+  const f = { ids: [], reglas: [], articulos: [], niveles: [], estado: '', frases: [], palabras: [] };
+  const quitar = (rx, fn) => { s = s.replace(rx, (...m) => { fn(m); return ' '; }); };
+  quitar(/"([^"]+)"|«([^»]+)»/g, m => { const fr = (m[1]||m[2]).trim(); if(fr) f.frases.push(fr); });
+  quitar(/\b((?:rj\d{1,2}|rc|bc|gl|var)-\d{1,3})\b/g, m => f.ids.push(m[1].toUpperCase()));
+  quitar(/\b(?:reglas?|r)\s*\.?\s*(\d{1,2})(?:[.,]\d+)*\b/g, m => { const n = +m[1]; if(n >= 1 && n <= 17) f.reglas.push('Regla ' + n); });
+  quitar(/\b(?:articulos?|arts?)\s*\.?\s*(\d{1,3})(?:[.,]\d+)*\b/g, m => f.articulos.push('Art. ' + (+m[1])));
+  quitar(/\b(?:nivel(?:es)?|dificultad|dif)\s*\.?\s*([1-4])(?:\s*(?:-|a|y|,)\s*([1-4]))?\b/g, m => {
+    const a = +m[1], b = m[2] ? +m[2] : a;
+    for(let n = Math.min(a,b); n <= Math.max(a,b); n++) f.niveles.push(n);
+  });
+  quitar(/\b(?:nivel|dificultad)\s+(basic[ao]|facil|medi[ao]|alt[ao]|dificil|expert[ao])\b/g, m => f.niveles.push(NIVEL_POR_PALABRA[m[1]]));
+  quitar(/\b(?:marcadas|favoritas)\b/g, () => { f.estado = 'marcadas'; });
+  quitar(/\bfalladas\b/g, () => { f.estado = 'falladas'; });
+  quitar(/\bno vistas\b/g, () => { f.estado = 'novistas'; });
+  quitar(/\bvistas\b/g, () => { f.estado = 'vistas'; });
+  f.libre = s.replace(/[¿?¡!;:()]/g, ' ').replace(/\s+/g, ' ').trim();
+  f.palabras = s.split(/[\s¿?¡!;:()]+/).map(p => p.replace(/^[,.]+|[,.]+$/g,'')).filter(p => p && !PALABRAS_VACIAS.has(p));
+  f.niveles = Array.from(new Set(f.niveles));
+  return f;
+}
+
+// Una palabra coincide si aparece al principio de una palabra del texto; admite singular/plural
+function variantes(p){
+  const v = [p];
+  if(p.length > 4 && p.endsWith('es')) v.push(p.slice(0, -2));
+  if(p.length > 3 && p.endsWith('s')) v.push(p.slice(0, -1));
+  return v;
+}
+function escRegex(s){ return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+function regexPalabra(p){ return new RegExp('[^a-z0-9ñ](' + variantes(p).map(escRegex).join('|') + ')'); }
+function regexExacta(p){ return new RegExp('[^a-z0-9ñ]' + escRegex(p) + '(?![a-z0-9])'); }
+const TITULOS_NORM = Object.fromEntries(Object.entries(TITULOS_REGLAS).map(([n, t]) => ['Regla ' + n, ' ' + normalizarTexto(t)]));
+
+function aplicarFiltros(f, sel){
+  const marcadas = new Set(getMarcadas()), falladas = new Set(getFalladas()), vistas = new Set(getVistas());
+  // Si el texto nombra una regla o artículo, manda sobre el desplegable
+  const reglas = f.reglas.length ? f.reglas : (TEMAS_REGLAS.includes(sel.tema) ? [sel.tema] : []);
+  const articulos = f.articulos.length ? f.articulos : (TEMAS_NORMATIVA.includes(sel.tema) ? [sel.tema] : []);
+  const niveles = f.niveles.length ? f.niveles.filter(n => !sel.niveles.length || sel.niveles.includes(n)) : sel.niveles;
+  const estado = f.estado || sel.estado;
+  const rxPalabras = f.palabras.map(regexPalabra);
+  const rxExactas = f.palabras.map(regexExacta);
+  const resultados = [];
+  BANCO.forEach(q => {
+    if(f.ids.length && !f.ids.includes(q.id)) return;
+    if(sel.bloque && q.bloque !== sel.bloque) return;
+    if(sel.fuente && !q.id.startsWith(sel.fuente + '-')) return;
+    if(reglas.length && !reglas.includes(q.regla)) return;
+    if(articulos.length && !articulos.includes(q.articulo)) return;
+    if(niveles.length && !niveles.includes(q.dificultad)) return;
+    if(estado === 'marcadas' && !marcadas.has(q.id)) return;
+    if(estado === 'falladas' && !falladas.has(q.id)) return;
+    if(estado === 'vistas' && !vistas.has(q.id)) return;
+    if(estado === 'novistas' && vistas.has(q.id)) return;
+    const ix = indiceDe(q);
+    const todo = ix.enunciado + ' ' + ix.opciones + ' ' + ix.resto;
+    if(!f.frases.every(fr => todo.includes(fr))) return;
+    if(!rxPalabras.every(rx => rx.test(todo))) return;
+    // Relevancia: cuenta más que la palabra esté en el enunciado que en la explicación
+    let puntos = 0;
+    rxPalabras.forEach(rx => { puntos += rx.test(ix.enunciado) ? 3 : rx.test(ix.opciones) ? 2 : 1; });
+    f.frases.forEach(fr => { puntos += ix.enunciado.includes(fr) ? 6 : 3; });
+    rxExactas.forEach(rx => { if(rx.test(todo)) puntos += 1; });
+    if(f.palabras.length > 1 && f.libre){
+      if(ix.enunciado.includes(f.libre)) puntos += 5; else if(ix.opciones.includes(f.libre)) puntos += 2;
+    }
+    // Si las palabras forman el título de una regla (p. ej. «saque de banda»), esa regla va primero
+    const titulo = TITULOS_NORM[q.regla];
+    if(titulo && f.palabras.length && rxPalabras.every(rx => rx.test(titulo))) puntos += 6;
+    resultados.push({ q, puntos });
+  });
+  resultados.sort((a, b) => b.puntos - a.puntos || ordenNatural(a.q.id, b.q.id) || a.q.id.localeCompare(b.q.id));
+  return resultados.map(r => r.q);
+}
+
+// Resalta las palabras buscadas sin tener en cuenta tildes ni mayúsculas
+function resaltar(texto, f){
+  const t = (texto||'').toString();
+  const terminos = f.frases.concat(f.palabras.flatMap(variantes)).filter(x => x.length > 1);
+  if(!terminos.length || /[<>]/.test(t)) return t;
+  const chars = Array.from(t);
+  const norm = chars.map(c => { const n = normalizarTexto(c); return n.length === 1 ? n : c.toLowerCase(); }).join('');
+  if(norm.length !== chars.length) return t;
+  const marcas = new Array(chars.length).fill(false);
+  terminos.sort((a, b) => b.length - a.length).forEach(term => {
+    const rx = new RegExp('(^|[^a-z0-9ñ])(' + escRegex(term) + ')', 'g'); let m;
+    while((m = rx.exec(norm))){ const ini = m.index + m[1].length; for(let i = ini; i < ini + m[2].length; i++) marcas[i] = true; rx.lastIndex = ini + 1; }
+  });
+  let html = '', abierto = false;
+  chars.forEach((c, i) => {
+    if(marcas[i] && !abierto){ html += '<mark>'; abierto = true; }
+    if(!marcas[i] && abierto){ html += '</mark>'; abierto = false; }
+    html += c;
+  });
+  return html + (abierto ? '</mark>' : '');
+}
+
+const busq = { sel: { bloque:'', fuente:'', tema:'', niveles:[], estado:'' }, texto:'', resultados:[], mostrados:0 };
+const BUSQ_PAGINA = 30, BUSQ_PRACTICA = 60;
+function guardarBusqueda(){
+  try{ sessionStorage.setItem('f11_busqueda', JSON.stringify({ texto: busq.texto, sel: busq.sel })); }catch(e){}
+}
+function hayFiltroSelector(){ const s = busq.sel; return !!(s.bloque || s.fuente || s.tema || s.niveles.length || s.estado); }
+
+function describirFiltros(f){
+  const partes = [];
+  f.ids.forEach(i => partes.push('ID ' + i));
+  f.reglas.forEach(r => partes.push(r + ' · ' + TITULOS_REGLAS[r.split(' ')[1]]));
+  f.articulos.forEach(a => partes.push(a));
+  if(f.niveles.length) partes.push('Nivel ' + f.niveles.sort().map(n => n + ' ' + NIVELES_NOMBRE[n]).join(', '));
+  if(f.estado) partes.push({marcadas:'Solo marcadas', falladas:'Solo falladas', vistas:'Ya vistas', novistas:'No vistas'}[f.estado]);
+  f.frases.forEach(fr => partes.push('Frase «' + fr + '»'));
+  if(f.palabras.length) partes.push('Palabras: ' + f.palabras.join(', '));
+  return partes;
+}
+
+function pintarResultadosBuscador(){
   const cont = document.getElementById('buscadorResultados');
   const contador = document.getElementById('buscadorContador');
+  const entendido = document.getElementById('buscadorEntendido');
   if(!cont) return;
-  if(!query.trim()){
+  const f = interpretarBusqueda(busq.texto);
+  const hayTexto = f.ids.length || f.reglas.length || f.articulos.length || f.niveles.length || f.estado || f.frases.length || f.palabras.length;
+  const partes = describirFiltros(f);
+  entendido.innerHTML = partes.length ? 'Buscando: ' + partes.map(p => `<span class="tag">${p}</span>`).join('') : '';
+  if(!hayTexto && !hayFiltroSelector()){
     contador.textContent = '';
-    cont.innerHTML = '<div class="info-text">Escribe una palabra o frase (p. ej. «fuera de juego», «tanda de penales», «sala de vídeo») para buscar entre las ' + BANCO.length + ' preguntas del banco.</div>';
-    window.__ultimaBusqueda = [];
+    cont.innerHTML = `<div class="info-text">Escribe palabras y, si quieres, filtros en el mismo texto. Ejemplos: «<b>mano regla 12 nivel 3</b>», «<b>"fuera de juego" nivel 1-2</b>», «<b>art 150</b>», «<b>penal falladas</b>», «<b>RJ8-040</b>». No distingue tildes ni mayúsculas, y busca en el enunciado, las opciones y la explicación de las ${BANCO.length} preguntas.</div>`;
+    busq.resultados = []; busq.mostrados = 0;
     return;
   }
-  const resultados = buscarEnBanco(query);
-  window.__ultimaBusqueda = resultados;
-  const LIMITE = 60;
-  const mostrar = resultados.slice(0, LIMITE);
-  contador.textContent = resultados.length === 0
-    ? 'Sin resultados.'
-    : `${resultados.length} resultado${resultados.length===1?'':'s'}${resultados.length>LIMITE?` (mostrando los primeros ${LIMITE}, afina la búsqueda para ver menos)`:''}.`;
-  cont.innerHTML = mostrar.length === 0 ? '' : mostrar.map(q=>`
+  busq.resultados = aplicarFiltros(f, busq.sel);
+  busq.mostrados = Math.min(BUSQ_PAGINA, busq.resultados.length);
+  const n = busq.resultados.length;
+  contador.textContent = n === 0 ? 'Sin resultados. Prueba con menos palabras o quita algún filtro.'
+    : `${n} pregunta${n===1?'':'s'} encontrada${n===1?'':'s'}, ordenadas por relevancia.`;
+  pintarTarjetasBuscador(f, false);
+}
+function pintarTarjetasBuscador(f, anadir){
+  const cont = document.getElementById('buscadorResultados');
+  const marcadas = new Set(getMarcadas()), falladas = new Set(getFalladas());
+  const desde = anadir ? cont.querySelectorAll('.review-item').length : 0;
+  const html = busq.resultados.slice(desde, busq.mostrados).map(q => `
     <div class="review-item">
       <div class="tag">${q.id}</div>
       <div class="tag">${q.bloque==='reglas'?(q.regla||'Reglas'):(q.articulo||'Normativa')}</div>
-      <div style="margin-top:8px;font-weight:600;">${q.enunciado}</div>
-      <div style="margin-top:6px;font-size:.9rem;">Respuesta correcta: <strong>${letraCorrecta(q)}) ${textoCorrecto(q)}</strong></div>
-      <div class="explicacion-box" style="margin-top:8px;">${q.explicacion}</div>
+      <div class="tag tag-nivel">Dificultad ${q.dificultad} · ${NIVELES_NOMBRE[q.dificultad]}</div>
+      ${marcadas.has(q.id) ? '<div class="tag">⭐ Marcada</div>' : ''}${falladas.has(q.id) ? '<div class="tag">❌ Fallada</div>' : ''}
+      <div style="margin-top:8px;font-weight:600;">${resaltar(q.enunciado, f)}</div>
+      <div style="margin-top:6px;font-size:.9rem;">Respuesta correcta: <strong>${letraCorrecta(q)}) ${resaltar(textoCorrecto(q), f)}</strong></div>
+      <div class="explicacion-box" style="margin-top:8px;">${resaltar(q.explicacion, f)}</div>
     </div>
   `).join('');
+  const btnMas = document.getElementById('btnBuscarMas');
+  if(btnMas) btnMas.remove();
+  if(anadir) cont.insertAdjacentHTML('beforeend', html); else cont.innerHTML = html;
+  const quedan = busq.resultados.length - busq.mostrados;
+  if(quedan > 0){
+    cont.insertAdjacentHTML('beforeend', `<button class="btn-outline" id="btnBuscarMas" style="width:100%;margin-bottom:12px;">Mostrar ${Math.min(quedan, BUSQ_PAGINA)} más (quedan ${quedan})</button>`);
+    document.getElementById('btnBuscarMas').addEventListener('click', () => {
+      busq.mostrados = Math.min(busq.mostrados + BUSQ_PAGINA, busq.resultados.length);
+      pintarTarjetasBuscador(f, true);
+    });
+  }
+  const btnPr = document.getElementById('btnPracticarBusqueda');
+  if(btnPr){
+    const n = busq.resultados.length;
+    btnPr.textContent = n > BUSQ_PRACTICA ? `▶ PRACTICAR ${BUSQ_PRACTICA} AL AZAR DE ${n}` : `▶ PRACTICAR ${n ? n + ' ' : ''}RESULTADOS`;
+  }
 }
+
 function renderBuscador(){
-  window.__ultimaBusqueda = [];
+  try{
+    const g = JSON.parse(sessionStorage.getItem('f11_busqueda') || 'null');
+    if(g){ busq.texto = g.texto || ''; Object.assign(busq.sel, g.sel || {}); }
+  }catch(e){}
+  const opt = (v, t, actual) => `<option value="${v.replace(/"/g,'&quot;')}"${v===actual?' selected':''}>${t}</option>`;
+  const s = busq.sel;
+  const temasReglas = TEMAS_REGLAS.map(t => opt(t, /^Regla \d+$/.test(t) ? `${t} · ${TITULOS_REGLAS[t.split(' ')[1]]}` : t, s.tema)).join('');
+  const temasNorm = TEMAS_NORMATIVA.map(t => opt(t, t, s.tema)).join('');
   app.innerHTML = `
     <div class="card">
       <h2>🔍 Buscar en el banco de preguntas</h2>
-      <div class="info-text" style="margin-bottom:10px;">Busca por tema, regla o palabra clave sin generar un examen entero. Se busca en el enunciado, las opciones y la explicación.</div>
-      <input type="text" id="buscadorInput" placeholder="Ej.: fuera de juego, penal, tarjeta roja, sala de vídeo..." autocomplete="off" style="max-width:100%;">
-      <div class="info-text" id="buscadorContador" style="margin-top:8px;"></div>
+      <input type="search" id="buscadorInput" placeholder="Ej.: mano regla 12 nivel 3" autocomplete="off" style="max-width:100%;width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:16px;background:var(--card);color:var(--text);">
+      <div class="busq-entendido" id="buscadorEntendido"></div>
+      <div class="busq-filtros">
+        <div><label for="busqBloque">Bloque</label>
+          <select id="busqBloque">${opt('', 'Todos', s.bloque + '|' + s.fuente)}${opt('reglas|', 'Reglas de Juego', s.bloque + '|' + s.fuente)}${opt('normativa|', 'Normativa (todo)', s.bloque + '|' + s.fuente)}${opt('normativa|RC', 'Reglamento de Competiciones', s.bloque + '|' + s.fuente)}${opt('normativa|BC', 'Bases de Competición', s.bloque + '|' + s.fuente)}</select></div>
+        <div><label for="busqTema">Regla o artículo</label>
+          <select id="busqTema">${opt('', 'Todos', s.tema)}<optgroup label="Reglas de Juego">${temasReglas}</optgroup><optgroup label="Normativa">${temasNorm}</optgroup></select></div>
+        <div><label for="busqEstado">Mis preguntas</label>
+          <select id="busqEstado">${opt('', 'Todas', s.estado)}${opt('marcadas', '⭐ Solo marcadas', s.estado)}${opt('falladas', '❌ Solo falladas', s.estado)}${opt('novistas', '🆕 No vistas', s.estado)}${opt('vistas', 'Ya vistas', s.estado)}</select></div>
+        <div><label>Dificultad</label>
+          <div class="busq-niveles" id="busqNiveles">${[1,2,3,4].map(n => `<button type="button" data-nivel="${n}" class="${s.niveles.includes(n)?'active':''}" title="${NIVELES_NOMBRE[n]}">${n}</button>`).join('')}</div></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:8px;">
+        <div class="info-text" id="buscadorContador"></div>
+        <button type="button" class="btn-outline" id="btnLimpiarBusqueda" style="padding:4px 10px;font-size:.78rem;white-space:nowrap;">Limpiar</button>
+      </div>
     </div>
     <div id="buscadorResultados"></div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin:16px 0;">
       <button class="btn-outline" id="btnVolverConfig" style="flex:1;">◀ VOLVER</button>
-      <button class="btn-primary" id="btnPracticarBusqueda" style="flex:1;">▶ PRACTICAR ESTOS RESULTADOS</button>
+      <button class="btn-primary" id="btnPracticarBusqueda" style="flex:1;">▶ PRACTICAR RESULTADOS</button>
     </div>
   `;
-  pintarResultadosBuscador('');
-  document.getElementById('btnVolverConfig').addEventListener('click', ()=>renderConfig());
-  document.getElementById('buscadorInput').addEventListener('input', (e)=> pintarResultadosBuscador(e.target.value));
-  document.getElementById('btnPracticarBusqueda').addEventListener('click', ()=>{
-    const ids = (window.__ultimaBusqueda||[]).slice(0,60).map(q=>q.id);
-    if(ids.length === 0){ avisoEnPantalla('Escribe algo en el buscador y espera a que aparezcan resultados antes de practicar.'); return; }
+  const input = document.getElementById('buscadorInput');
+  input.value = busq.texto;
+  let espera = null;
+  const actualizar = () => { guardarBusqueda(); pintarResultadosBuscador(); };
+  input.addEventListener('input', () => { busq.texto = input.value; clearTimeout(espera); espera = setTimeout(actualizar, 150); });
+  document.getElementById('busqBloque').addEventListener('change', e => { [s.bloque, s.fuente] = e.target.value ? e.target.value.split('|') : ['', '']; actualizar(); });
+  document.getElementById('busqTema').addEventListener('change', e => { s.tema = e.target.value; actualizar(); });
+  document.getElementById('busqEstado').addEventListener('change', e => { s.estado = e.target.value; actualizar(); });
+  document.querySelectorAll('#busqNiveles button').forEach(b => b.addEventListener('click', () => {
+    const n = +b.dataset.nivel;
+    s.niveles = s.niveles.includes(n) ? s.niveles.filter(x => x !== n) : s.niveles.concat(n);
+    b.classList.toggle('active', s.niveles.includes(n));
+    actualizar();
+  }));
+  document.getElementById('btnLimpiarBusqueda').addEventListener('click', () => {
+    busq.texto = ''; busq.sel = { bloque:'', fuente:'', tema:'', niveles:[], estado:'' };
+    try{ sessionStorage.removeItem('f11_busqueda'); }catch(e){}
+    renderBuscador();
+  });
+  document.getElementById('btnVolverConfig').addEventListener('click', () => renderConfig());
+  document.getElementById('btnPracticarBusqueda').addEventListener('click', () => {
+    let ids = busq.resultados.map(q => q.id);
+    if(ids.length === 0){ avisoEnPantalla('No hay resultados que practicar. Escribe algo o elige algún filtro.'); return; }
+    if(ids.length > BUSQ_PRACTICA) ids = ids.sort(() => Math.random() - 0.5).slice(0, BUSQ_PRACTICA);
     generarExamenDesdeIds(ids, false);
   });
-  document.getElementById('buscadorInput').focus();
+  pintarResultadosBuscador();
+  input.focus();
 }
 
 // ---------- ENLACES A LOS DOCUMENTOS ORIGEN ----------
