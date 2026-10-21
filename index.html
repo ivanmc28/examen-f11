@@ -273,7 +273,7 @@ function avanzarExamen(){
   else finalizarExamen();
 }
 
-const APP_VERSION = '20261021-091435';
+const APP_VERSION = '20261021-093540';
 const app = document.getElementById('app');
 // La barra de descarga de documentos solo se muestra en la pantalla de inicio.
 function mostrarDocsBar(si){ const d = document.getElementById('docsBar'); if(d) d.classList.toggle('hidden', !si); }
@@ -341,6 +341,42 @@ function pickRandom(arr, n){
   return shuffle(arr).slice(0, Math.min(n, arr.length));
 }
 
+// Reparto tomado de los exámenes oficiales (Fases 1 y 2): de 40 preguntas, 2-5 de artículos,
+// 1-3 de glosario y al menos la mitad del examen con situaciones de juego; la teoría, al azar.
+const REPARTO = { artMin: 0.05, artMax: 0.125, glosMin: 0.025, glosMax: 0.075, minSituacion: 0.5 };
+function cantidadAlAzar(total, pMin, pMax){
+  const a = Math.max(total >= 10 ? 1 : 0, Math.round(total * pMin));
+  const b = Math.max(a, Math.round(total * pMax));
+  return a + Math.floor(Math.random() * (b - a + 1));
+}
+// Situación de juego: el enunciado plantea un hecho concreto del partido y pide la decisión.
+// Teoría: preguntas directas («¿…?», «Según…»), definiciones o datos con introducción genérica.
+const RX_INICIO_TEORIA = /^(¿|Según|Además de|Respecto|A efectos|Elige la|La tecnología|Si se |Si el |Cuando se |Dentro de la categoría)/;
+function esSituacion(q){
+  if(q.bloque !== 'reglas' || q.regla === 'Glosario') return false;
+  const e = q.enunciado.trim();
+  if(RX_INICIO_TEORIA.test(e)) return false;
+  const i = e.indexOf('¿');
+  if(i > 0 && !/[.;]/.test(e.slice(0, i))) return false;          // «En la tanda de penales, ¿puede…?»
+  if(/:$/.test(e) && !/(árbitro|Decisión):$/.test(e) && !/[.;]/.test(e.slice(0, -1))) return false; // «…deberá situarse:»
+  return true;
+}
+function pickReglas(pool, n, total){
+  const glos = pool.filter(q => q.regla === 'Glosario');
+  const resto = pool.filter(q => q.regla !== 'Glosario');
+  const nGlos = !resto.length ? n : !glos.length ? 0 : Math.min(cantidadAlAzar(total, REPARTO.glosMin, REPARTO.glosMax), glos.length, n);
+  const elegidas = pickRandom(glos, nGlos);
+  const situaciones = shuffle(resto.filter(esSituacion));
+  elegidas.push(...situaciones.slice(0, Math.min(Math.ceil(total * REPARTO.minSituacion), n - elegidas.length)));
+  const usadas = new Set(elegidas.map(q => q.id));
+  elegidas.push(...pickRandom(pool.filter(q => !usadas.has(q.id) && q.regla !== 'Glosario'), n - elegidas.length));
+  if(elegidas.length < n){
+    const ya = new Set(elegidas.map(q => q.id));
+    elegidas.push(...pickRandom(pool.filter(q => !ya.has(q.id)), n - elegidas.length));
+  }
+  return elegidas;
+}
+
 // Las preguntas "título del artículo" / "artículo con tal título" revelan (o son reveladas por)
 // cualquier otra pregunta del mismo artículo, así que no pueden convivir en un mismo examen.
 function claveArt(q){ return q.fuente + '|' + q.articulo; }
@@ -395,43 +431,16 @@ function renderConfig(errorMsg){
       <label>Modo de distribución entre bloques</label>
       <div class="toggle-config" id="distGroup" style="flex-wrap:wrap;">
         <button type="button" data-dist="simple" class="active">Por defecto</button>
-        <button type="button" data-dist="rangos">Rangos</button>
         <button type="button" data-dist="reglas">Solo Reglas</button>
         <button type="button" data-dist="articulos">Solo Artículos</button>
       </div>
       <input type="hidden" id="distModo" value="simple">
 
       <div id="simpleBlock">
-        <div class="info-text">En modo simple, como máximo un 20% de las preguntas serán de Artículos (Normativa RFEF); el resto (mínimo 80%) serán de Reglas de Juego.</div>
-        <label for="pctArticulosSimple">Preguntas de Artículos — Normativa RFEF (máx. 20%)</label>
-        <input type="number" id="pctArticulosSimple" min="0" max="20" value="20">
+        <div class="info-text">Reparto como en los exámenes oficiales: en un examen de 40, entre 2 y 5 preguntas de Artículos (Normativa RFEF) y entre 1 y 3 de Glosario; al menos la mitad del examen son situaciones de juego y el resto, preguntas de Reglas al azar (situaciones o teoría). Con otro número de preguntas se mantienen las proporciones.</div>
       </div>
 
       <div id="avanzadoBlock" class="hidden">
-        <div id="rangoBlock" class="hidden">
-          <div class="row">
-            <div>
-              <label>Reglas de Juego — Mínimo</label>
-              <input type="number" id="rangoReglasMin" min="0" value="30">
-            </div>
-            <div>
-              <label>Reglas de Juego — Máximo</label>
-              <input type="number" id="rangoReglasMax" min="0" value="35">
-            </div>
-          </div>
-          <div class="row">
-            <div>
-              <label>Normativa RFEF — Mínimo</label>
-              <input type="number" id="rangoNormMin" min="0" value="5">
-            </div>
-            <div>
-              <label>Normativa RFEF — Máximo</label>
-              <input type="number" id="rangoNormMax" min="0" value="10">
-            </div>
-          </div>
-          <div class="info-text">El programa elegirá una combinación válida cuya suma coincida con el número total de preguntas.</div>
-        </div>
-
         <label style="margin-top:16px;">Selección de temas (examínate solo de lo que marques)</label>
         <div class="info-text">Deja todo marcado para incluir todos los temas disponibles, o desmarca para restringir el examen a temas concretos.</div>
 
@@ -509,7 +518,6 @@ function renderConfig(errorMsg){
       document.getElementById('distModo').value = d;
       document.getElementById('simpleBlock').classList.toggle('hidden', d !== 'simple');
       document.getElementById('avanzadoBlock').classList.toggle('hidden', d === 'simple');
-      document.getElementById('rangoBlock').classList.toggle('hidden', d !== 'rangos');
       document.getElementById('temasReglasWrap').classList.toggle('hidden', d === 'articulos');
       document.getElementById('temasNormWrap').classList.toggle('hidden', d === 'reglas');
     });
@@ -527,11 +535,6 @@ function renderConfig(errorMsg){
   btnNoVistas.addEventListener('click', ()=>{
     const activo = btnNoVistas.classList.toggle('active');
     document.getElementById('soloNoVistas').value = activo ? '1' : '0';
-  });
-
-  document.getElementById('pctArticulosSimple').addEventListener('input', e=>{
-    let v = parseInt(e.target.value,10);
-    if(!isNaN(v) && v > 20) e.target.value = 20;
   });
 
   const marcarTemas = (selector, valor)=> document.querySelectorAll(selector).forEach(x=>x.checked = valor);
@@ -1245,7 +1248,7 @@ function onGenerarClick(){
     renderConfig('Selecciona al menos un nivel de dificultad.');
     return;
   }
-  const distModo = document.getElementById('distModo').value; // 'simple'|'rangos'|'reglas'|'articulos'
+  const distModo = document.getElementById('distModo').value; // 'simple'|'reglas'|'articulos'
   const modoAvanzado = distModo !== 'simple';
   const modo = document.getElementById('modoSeleccionado').value; // 'examen' | 'estudio' | 'flashcard'
   const soloNoVistas = document.getElementById('soloNoVistas').value === '1';
@@ -1254,39 +1257,15 @@ function onGenerarClick(){
   let temasReglas = null, temasNorm = null;
 
   if(!modoAvanzado){
-    // MODO SIMPLE: máximo 20% de artículos (normativa), resto reglas.
-    let pN = parseInt(document.getElementById('pctArticulosSimple').value,10);
-    if(isNaN(pN) || pN < 0) pN = 0;
-    if(pN > 20) pN = 20;
-    nNormativa = Math.round(total * pN / 100);
+    // MODO SIMPLE: artículos en la proporción de los exámenes oficiales, resto reglas.
+    nNormativa = cantidadAlAzar(total, REPARTO.artMin, REPARTO.artMax);
     nReglas = total - nNormativa;
   } else {
     const av = distModo;
     if(av === 'reglas'){
       nReglas = total; nNormativa = 0;
-    } else if(av === 'articulos'){
-      nReglas = 0; nNormativa = total;
     } else {
-      const rMin = parseInt(document.getElementById('rangoReglasMin').value,10);
-      const rMax = parseInt(document.getElementById('rangoReglasMax').value,10);
-      const nMin = parseInt(document.getElementById('rangoNormMin').value,10);
-      const nMax = parseInt(document.getElementById('rangoNormMax').value,10);
-      if([rMin,rMax,nMin,nMax].some(v=>isNaN(v)) || rMin>rMax || nMin>nMax){
-        renderConfig('Revisa los rangos: los mínimos no pueden ser mayores que los máximos.');
-        return;
-      }
-      // Buscar combinaciones válidas donde reglas+normativa = total
-      const combinaciones = [];
-      for(let r=rMin; r<=rMax; r++){
-        const n = total - r;
-        if(n >= nMin && n <= nMax) combinaciones.push([r,n]);
-      }
-      if(combinaciones.length === 0){
-        renderConfig('No existe ninguna combinación de rangos válida cuya suma sea igual al número total de preguntas. Ajusta los rangos o el total.');
-        return;
-      }
-      const elegido = combinaciones[Math.floor(Math.random()*combinaciones.length)];
-      nReglas = elegido[0]; nNormativa = elegido[1];
+      nReglas = 0; nNormativa = total;
     }
 
     temasReglas = Array.from(document.querySelectorAll('input[name=temaRegla]:checked')).map(x=>x.value);
@@ -1297,10 +1276,6 @@ function onGenerarClick(){
     }
     if(av === 'articulos' && temasNorm.length === 0){
       renderConfig('Marca al menos un artículo para poder generar el examen.');
-      return;
-    }
-    if(av === 'rangos' && temasReglas.length === 0 && temasNorm.length === 0){
-      renderConfig('Marca al menos un tema (regla o artículo) para poder generar el examen.');
       return;
     }
   }
@@ -1331,14 +1306,8 @@ function onGenerarClick(){
 
 function onSimulacroClick(){
   const total = 40;
-  const rMin=30, rMax=35, nMin=5, nMax=10;
-  const combinaciones = [];
-  for(let r=rMin; r<=rMax; r++){
-    const n = total - r;
-    if(n >= nMin && n <= nMax) combinaciones.push([r,n]);
-  }
-  const elegido = combinaciones[Math.floor(Math.random()*combinaciones.length)];
-  generarExamen(elegido[0], elegido[1], 'examen', [1,2,3,4], null, null, false);
+  const nNormativa = cantidadAlAzar(total, REPARTO.artMin, REPARTO.artMax);
+  generarExamen(total - nNormativa, nNormativa, 'examen', [1,2,3,4], null, null, false);
 }
 
 function generarExamen(nReglas, nNormativa, modo, niveles, temasReglas, temasNorm, soloNoVistas){
@@ -1354,7 +1323,7 @@ function generarExamen(nReglas, nNormativa, modo, niveles, temasReglas, temasNor
     poolReglas = poolReglas.filter(q=>!vistas.has(q.id));
     poolNormativa = poolNormativa.filter(q=>!vistas.has(q.id));
   }
-  const seleccionReglas = pickRandom(poolReglas, nReglas);
+  const seleccionReglas = pickReglas(poolReglas, nReglas, nReglas + nNormativa);
   const seleccionNormativa = pickNormativa(poolNormativa, nNormativa);
   let seleccion = shuffle(seleccionReglas.concat(seleccionNormativa));
 
