@@ -136,7 +136,7 @@ mark{background:var(--amber-bg);color:inherit;border-radius:3px;padding:0 1px;}
 .fc-par{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:6px;}
 .fc-tarjeta{border:2px solid var(--border);border-radius:10px;padding:16px;background:var(--card);min-height:220px;}
 .fc-tarjeta .fc-tit{font-size:.75rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
-.fc-tarjeta .enunciado{margin-bottom:12px;}
+.fc-tarjeta .enunciado{margin-bottom:0;font-size:1.15rem;}
 .fc-giro{perspective:1200px;cursor:pointer;min-height:220px;outline:none;}
 .fc-giro:focus-visible .fc-cara{border-color:var(--accent);}
 .fc-interior{position:relative;width:100%;height:100%;min-height:220px;transition:transform .5s;transform-style:preserve-3d;}
@@ -301,7 +301,7 @@ function avanzarExamen(){
   else finalizarExamen();
 }
 
-const APP_VERSION = '20261021-190723';
+const APP_VERSION = '20261021-191104';
 const app = document.getElementById('app');
 // La barra de descarga de documentos solo se muestra en la pantalla de inicio.
 function mostrarDocsBar(si){ const d = document.getElementById('docsBar'); if(d) d.classList.toggle('hidden', !si); }
@@ -1590,10 +1590,6 @@ function renderFlashcardPregunta(){
     return `<button class="${cls}" data-goto="${i}">${i+1}</button>`;
   }).join('');
 
-  const opcionesHtml = ['A','B','C'].map(letra=>`<button class="opcion" data-letra="${letra}" disabled style="cursor:default;">
-      <span class="letra">${letra}</span>${q.opciones[letra]}
-    </button>`).join('');
-
   app.innerHTML = `
     <div class="card">
       <div class="q-header">
@@ -1607,7 +1603,6 @@ function renderFlashcardPregunta(){
         <div class="fc-tarjeta">
           <div class="fc-tit">Pregunta</div>
           <div class="enunciado">${q.enunciado}</div>
-          ${opcionesHtml}
         </div>
         <div class="fc-giro${revelada ? ' girada' : ''}" id="fcRespuesta" role="button" tabindex="0" aria-label="${revelada ? 'Respuesta correcta' : 'Mostrar la respuesta'}">
           <div class="fc-interior">
