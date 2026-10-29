@@ -28,3 +28,8 @@ App de exámenes de ascenso arbitral de Fútbol 11 (CTA/RFEF).
 - `banco.json`: copia del banco de `index.html`. `docs/`: texto de los PDF vigentes por páginas.
 - `ctx.py ID…` muestra preguntas con los fragmentos del documento que las respaldan; `apply.py ed/loteNN.json` valida (citas literales) y aplica cambios a `banco.json`.
 - Lo aplicado se registra en `ed/` (`hechas.json`, `duplicadas.json`, `epocas.json`…); `duplicadas_y_dudosas.md` es la propuesta pendiente de confirmar.
+
+## Material de partida (`material/`)
+
+- Carpeta local, en `.gitignore`, con lo rescatado de la antigua carpeta `~/Escritorio/Arbitraje` (borrada el 2026-10-29; su app era una versión vieja que ya está en el historial de git).
+- Originales editables de los resúmenes (`.odt`, `.docx`), `Reglamento_Articulos_Seleccionados.docx` y `ReglamentoGeneralVigente.pdf`. Este último **no** es un documento vigente para el banco (ver la regla de arriba sobre el «Reglamento General»).
