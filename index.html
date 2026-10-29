@@ -9,8 +9,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Teoría Ascenso F11 — CTA/RFEF">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="iconos/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="iconos/icon-192.png">
 <title>Teoría Ascenso F11 — CTA/RFEF</title>
 <style>
 :root{
@@ -175,9 +175,9 @@ mark{background:var(--amber-bg);color:inherit;border-radius:3px;padding:0 1px;}
 </header>
 <div class="docs-bar" id="docsBar">
   <span class="docs-title">📥 Descargar documentos:</span>
-  <a href="ReglasDelJuego26-27.pdf" data-pdf="1">Reglas de Juego 26/27</a>
-  <a href="Resumen_Articulos_Bases_Competicion_20-30.pdf" data-pdf="1">Bases de Competición (Art. 20-30)</a>
-  <a href="ResumenReglamentoCompeticiones.pdf" data-pdf="1">Reglamento de Competiciones</a>
+  <a href="documentos/ReglasDelJuego26-27.pdf" data-pdf="1">Reglas de Juego 26/27</a>
+  <a href="documentos/Resumen_Articulos_Bases_Competicion_20-30.pdf" data-pdf="1">Bases de Competición (Art. 20-30)</a>
+  <a href="documentos/ResumenReglamentoCompeticiones.pdf" data-pdf="1">Reglamento de Competiciones</a>
   <a href="#" id="btnInstalar" style="display:none;background:var(--green);">📲 Instalar app</a>
   <a href="https://www.theifab.com/es/laws-of-the-game-documents/?language=all&year=2026%2F27" target="_blank" rel="noopener">Web oficial IFAB ↗</a>
 </div>
@@ -1294,7 +1294,7 @@ function generarExamenDesdeIds(ids, modoExamen){
   return true;
 }
 function urlDesdeRuta(fuente, pag){
-  if(/^https?:$/.test(location.protocol)) return encodeURI(fuente)+'#page='+pag;   // PDF alojado en la propia web
+  if(/^https?:$/.test(location.protocol)) return encodeURI('documentos/'+fuente)+'#page='+pag;   // PDF alojado en la propia web (carpeta documentos/)
   let r = carpetaDocs().trim().replace(/^["']|["']$/g,'').replace(/\\/g,'/');
   if(!r) return null;
   if(/\.pdf$/i.test(r)) r = r.replace(/\/[^\/]*$/,'');   // si pegó la ruta de un PDF, quitar el nombre
@@ -1859,7 +1859,7 @@ document.querySelectorAll('#docsBar a[data-pdf]').forEach(a=>{
       const tipo = (r.headers.get('content-type')||'').toLowerCase();
       if(r.ok && tipo.indexOf('pdf') !== -1){
         const t = document.createElement('a');
-        t.href = url; t.download = url; document.body.appendChild(t); t.click(); t.remove();
+        t.href = url; t.download = url.split('/').pop(); document.body.appendChild(t); t.click(); t.remove();
         return;
       }
     }catch(err){}

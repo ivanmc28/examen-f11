@@ -5,9 +5,19 @@ App de exámenes de ascenso arbitral de Fútbol 11 (CTA/RFEF).
 ## Arquitectura
 
 - Toda la app vive en un único `index.html` (HTML + CSS + JS + banco de preguntas). No dividirlo en varios archivos.
-- Se publica en GitHub Pages como PWA (`manifest.webmanifest`, `sw.js`, iconos).
+- Se publica en GitHub Pages como PWA (`manifest.webmanifest`, `sw.js`, `iconos/`). `sw.js` debe seguir en la raíz para controlar toda la web.
 - El progreso de cada usuario se guarda en Firebase, proyecto `f11-examen`.
 - El título de la app es **«Teoría Ascenso F11 — CTA/RFEF»**. Úsalo igual en `<title>`, en el manifest y en la interfaz.
+
+## Estructura de carpetas
+
+- Raíz: solo lo que forma la app (`index.html`, `manifest.webmanifest`, `sw.js`) y este archivo.
+- `iconos/`: iconos de la PWA (los usan `index.html`, el manifest y `sw.js`).
+- `documentos/`: PDF vigentes. La app abre desde aquí los tres de la barra de documentos (Reglas de Juego y los dos resúmenes); en el banco, `fuente` guarda solo el nombre del archivo y la app añade `documentos/`.
+- `referencia/`: exámenes oficiales antiguos, `Preguntas_dudosas.pdf` y la clasificación de árbitros.
+- `banco/`: Excel exportado con el banco de preguntas.
+- `revision/` y `material/`: locales, fuera de git (ver abajo).
+- Si se mueve o renombra un archivo que use la app, actualizar sus rutas en `index.html`, el manifest y `sw.js`, y subir la versión de `CACHE` en `sw.js`.
 
 ## Reglas del banco de preguntas
 
@@ -15,7 +25,7 @@ App de exámenes de ascenso arbitral de Fútbol 11 (CTA/RFEF).
 - **No borrar ni cambiar preguntas en bloque sin preguntarme antes.**
 - Las preguntas de Normativa del tipo «¿Qué título tiene el Artículo X?» **se quedan**: no hay que borrarlas.
 
-## Exámenes oficiales (`ExamenActa1.pdf`, `ExamenActa2.pdf`)
+## Exámenes oficiales (`referencia/ExamenActa1.pdf`, `referencia/ExamenActa2.pdf`)
 
 - Son de temporadas pasadas: **sirven solo como referencia de estructura, nunca de contenido.**
 - Úsalos para: número de preguntas, reparto por apartados (reglas, artículos, glosario), proporción de situaciones de juego frente a teoría, estilo de redacción y forma de las opciones.
