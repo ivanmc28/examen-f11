@@ -23,7 +23,7 @@ App de exámenes de ascenso arbitral de Fútbol 11 (CTA/RFEF).
 
 - **No renumerar IDs.** Si se borra una pregunta, su ID queda como hueco. Las preguntas nuevas ocupan primero los huecos de su bloque.
 - **No borrar ni cambiar preguntas en bloque sin preguntarme antes.**
-- Las preguntas de Normativa del tipo «¿Qué título tiene el Artículo X?» **se quedan**: no hay que borrarlas.
+- Las preguntas de Normativa que preguntan un artículo por su nombre («¿Qué título tiene el Artículo X?») o al revés (qué artículo regula tal cosa) **no se borran nunca**. En Normativa solo se borran duplicadas concretas (mismo dato preguntado dos veces).
 
 ## Exámenes oficiales (`referencia/ExamenActa1.pdf`, `referencia/ExamenActa2.pdf`)
 
@@ -37,7 +37,8 @@ App de exámenes de ascenso arbitral de Fútbol 11 (CTA/RFEF).
 - Carpeta local de trabajo para revisar el banco; está en `.gitignore` (el repositorio es público).
 - `banco.json`: copia del banco de `index.html`. `docs/`: texto de los PDF vigentes por páginas.
 - `ctx.py ID…` muestra preguntas con los fragmentos del documento que las respaldan; `apply.py ed/loteNN.json` valida (citas literales) y aplica cambios a `banco.json`.
-- Lo aplicado se registra en `ed/` (`hechas.json`, `duplicadas.json`, `epocas.json`…); `duplicadas_y_dudosas.md` es la propuesta pendiente de confirmar.
+- `sync.py` lleva `banco.json` a `index.html` (y sube `APP_VERSION`, que es lo que avisa a los usuarios de que hay versión nueva) y regenera el Excel de `banco/` (necesita openpyxl). `situaciones.js` cuenta las situaciones de juego por regla con el criterio de la app.
+- Lo aplicado se registra en `ed/` (`hechas.json`, `duplicadas.json`, `epocas.json`…); `duplicadas_y_dudosas.md` es la propuesta original de duplicadas y dudosas (ya resuelta).
 
 ## Material de partida (`material/`)
 
