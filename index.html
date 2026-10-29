@@ -305,7 +305,7 @@ function avanzarExamen(){
   else finalizarExamen();
 }
 
-const APP_VERSION = '20261029-150239';
+const APP_VERSION = '20261029-155545';
 const app = document.getElementById('app');
 // La barra de descarga de documentos solo se muestra en la pantalla de inicio.
 function mostrarDocsBar(si){ const d = document.getElementById('docsBar'); if(d) d.classList.toggle('hidden', !si); }
@@ -1215,7 +1215,59 @@ function listaReportes(){
   const r = getReportes();
   return Object.keys(r).filter(id => !r[id].borrado).map(id => Object.assign({id}, r[id])).sort((a, b) => b.t - a.t);
 }
-function guardarReporte(id, datos){ const r = getReportes(); r[id] = Object.assign(datos, {t: Date.now()}); guardarJSON('f11_reportes', r); }
+function guardarReporte(id, datos){ const r = getReportes(); r[id] = Object.assign(datos, {t: Date.now()}); guardarJSON('f11_reportes', r); encolarBuzon(id, r[id]); }
+
+// Buzón común de reportes: además de en la cuenta de quien reporta, cada reporte se copia en un documento
+// compartido (/usuarios/BUZON-REPORTES; en mayúsculas para que nadie pueda entrar en él como usuario, porque
+// la app pasa los nombres a minúsculas). Para no pisar reportes de otros, se escribe solo si nadie lo ha
+// cambiado desde que se leyó (ETag + if-match) y, si no, se vuelve a leer e intentar. Lo que no se pueda
+// enviar (sin conexión) queda en «f11_buzon_pendientes» y se reintenta al abrir la app.
+var BUZON_URL = SYNC_URL ? SYNC_URL + '/usuarios/BUZON-REPORTES.json' : '';
+function idDispositivo(){
+  try{
+    let d = localStorage.getItem('f11_dispositivo');
+    if(!d){ d = 'anon-' + Math.random().toString(36).slice(2, 10); localStorage.setItem('f11_dispositivo', d); }
+    return d;
+  }catch(e){ return 'anon'; }
+}
+function encolarBuzon(id, rep){
+  if(!BUZON_URL) return;
+  const u = getUsuario() || idDispositivo();
+  const pend = leerJSON('f11_buzon_pendientes', {});
+  pend[u + '|' + id] = Object.assign({u: u, id: id}, rep);
+  try{ localStorage.setItem('f11_buzon_pendientes', JSON.stringify(pend)); }catch(e){}
+  enviarBuzon();
+}
+var _enviandoBuzon = false;
+async function enviarBuzon(){
+  if(!BUZON_URL || _enviandoBuzon) return;
+  const pend = leerJSON('f11_buzon_pendientes', {});
+  const claves = Object.keys(pend);
+  if(claves.length === 0) return;
+  _enviandoBuzon = true;
+  try{
+    for(let intento = 0; intento < 5; intento++){
+      const r = await fetch(BUZON_URL, {cache:'no-store', headers:{'X-Firebase-ETag':'true'}});
+      if(!r.ok) throw new Error('HTTP ' + r.status);
+      const etag = r.headers.get('ETag');
+      const doc = await r.json();
+      const lista = doc && doc.datos ? JSON.parse(doc.datos) : {};
+      claves.forEach(k=>{ if(!lista[k] || (lista[k].t || 0) < pend[k].t) lista[k] = pend[k]; });
+      const w = await fetch(BUZON_URL, {method:'PUT', headers:{'Content-Type':'application/json', 'if-match': etag},
+        body: JSON.stringify({actualizado: Date.now(), datos: JSON.stringify(lista)})});
+      if(w.status === 412) continue;             // otro lo cambió entre medias: leer de nuevo
+      if(!w.ok) throw new Error('HTTP ' + w.status);
+      const ahora = leerJSON('f11_buzon_pendientes', {});
+      claves.forEach(k=>{ if(ahora[k] && ahora[k].t === pend[k].t) delete ahora[k]; });
+      localStorage.setItem('f11_buzon_pendientes', JSON.stringify(ahora));
+      break;
+    }
+  }catch(e){
+    // sin conexión o error: se reintentará más tarde
+  }finally{
+    _enviandoBuzon = false;
+  }
+}
 function escHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c])); }
 function botonReporteHtml(id, compacto){
   const hecho = !!reporteDe(id);
@@ -1242,7 +1294,7 @@ function abrirReporte(id){
     '<button type="button" class="btn-primary" id="btnReporteGuardar" style="flex:2;">' + (previo ? 'GUARDAR CAMBIOS' : 'ENVIAR REPORTE') + '</button>' +
     (previo ? '<button type="button" class="btn-danger" id="btnReporteQuitar" style="flex:1;">QUITAR</button>' : '') +
     '<button type="button" class="btn-outline" id="btnReporteCancelar" style="flex:1;">CANCELAR</button></div>' +
-    (getUsuario() ? '' : '<div class="info-text" style="margin-top:10px;">Sin sesión iniciada, el reporte solo se guarda en este navegador. Entra con tu usuario para que se guarde en tu cuenta.</div>') +
+    (getUsuario() ? '' : '<div class="info-text" style="margin-top:10px;">Sin sesión iniciada, el reporte llega igualmente a la revisión, pero en tu lista solo se guarda en este navegador.</div>') +
     '</div>';
   ov.addEventListener('click', e=>{ if(e.target === ov) cerrarAvisoPantalla(); });
   document.body.appendChild(ov);
@@ -1295,7 +1347,7 @@ function renderReportes(){
   app.innerHTML = `
     <div class="card" id="listaReportes">
       <h2>🚩 Mis reportes (${lista.length})</h2>
-      <div class="info-text">${getUsuario() ? 'Se guardan en tu cuenta y se sincronizan entre tus dispositivos.' : 'Se guardan solo en este navegador: inicia sesión para guardarlos en tu cuenta.'}</div>
+      <div class="info-text">Tus reportes llegan a la revisión del banco. ${getUsuario() ? 'Además se guardan en tu cuenta y se sincronizan entre tus dispositivos.' : 'Esta lista solo se guarda en este navegador: inicia sesión para tenerla en tu cuenta.'}</div>
       <button type="button" class="btn-outline" id="btnCopiarReportes" style="margin:10px 0 12px;" ${lista.length===0?'disabled':''}>📋 COPIAR TODOS COMO TEXTO</button>
       ${itemsHtml}
     </div>
@@ -2497,6 +2549,8 @@ window.addEventListener('beforeunload', function(e){
 renderConfig();
 pintarEstadoUsuario();
 if(getUsuario() && SYNC_URL) sincronizar();
+enviarBuzon();
+window.addEventListener('online', enviarBuzon);
 
 </script>
 </body>

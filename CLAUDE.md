@@ -23,7 +23,8 @@ App de exámenes de ascenso arbitral de Fútbol 11 (CTA/RFEF).
 
 - Cada usuario guarda su progreso en Firebase (`/usuarios/<usuario>`); las reglas solo permiten leer y escribir dentro de ese espacio.
 - Falladas: una pregunta sale del repaso tras `ACIERTOS_PARA_SALIR` (2) aciertos seguidos en exámenes distintos; `f11_repaso` guarda fallos, aciertos seguidos y fecha. El repaso coge hasta `MAX_REPASO` (40), empezando por las que tocan y las más falladas.
-- Reportes de preguntas: se guardan en `f11_reportes` de la cuenta de quien reporta. `revision/reportes.py USUARIO` los lista (solo lectura) para revisarlos.
+- Reportes de preguntas: se guardan en `f11_reportes` de la cuenta de quien reporta y además en el buzón común `/usuarios/BUZON-REPORTES` (en mayúsculas para que nadie pueda entrar en él desde la app; se escribe con ETag + if-match para no pisar reportes ajenos). `revision/reportes.py` lista los del buzón (o los de un usuario con `reportes.py USUARIO`), solo lectura.
+- Si se cambia `index.html` a mano (sin `sync.py`), subir `APP_VERSION` para que los usuarios reciban la versión nueva.
 - `EPOCAS_IDS`: al borrar una pregunta o reutilizar un ID se sube su época para que los navegadores olviden lo guardado de la anterior. `sync.py` lo hace solo.
 
 ## Reglas del banco de preguntas
