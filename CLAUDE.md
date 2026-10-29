@@ -46,8 +46,9 @@ App de exámenes de ascenso arbitral de Fútbol 11 (CTA/RFEF).
 - `banco.json`: copia del banco de `index.html`. `docs/`: texto de los PDF vigentes por páginas.
 - `ctx.py ID…` muestra preguntas con los fragmentos del documento que las respaldan; `apply.py ed/loteNN.json` valida (citas literales) y aplica cambios a `banco.json`.
 - `add.py ed/nuevas_XX.json` añade preguntas nuevas: valida citas literales, opciones, que la correcta no destaque por larga y el parecido con las existentes, y asigna ID ocupando huecos. `huecos.py PAG_INI PAG_FIN [PREFIJOS]` lista frases de las Reglas que ninguna pregunta cubre.
-- `sync.py` lleva `banco.json` a `index.html` (y sube `APP_VERSION`, que es lo que avisa a los usuarios de que hay versión nueva) y regenera el Excel de `banco/` (necesita openpyxl). `situaciones.js` cuenta las situaciones de juego por regla con el criterio de la app.
-- Lo aplicado se registra en `ed/` (`hechas.json`, `duplicadas.json`, `epocas.json`…); `duplicadas_y_dudosas.md` es la propuesta original de duplicadas y dudosas (ya resuelta).
+- `sync.py` lleva `banco.json` a `index.html` (sube `APP_VERSION`, que es lo que avisa a los usuarios de que hay versión nueva, y las épocas de los ID borrados o reutilizados) y regenera el Excel de `banco/`. Se ejecuta con `revision/.venv/bin/python revision/sync.py` (ese entorno tiene openpyxl). `situaciones.js` cuenta las situaciones de juego por regla con el criterio de la app. `art.py RC|BC NUM…` muestra artículos con sus preguntas.
+- Después de `sync.py`: commit y `git push` (GitHub Pages publica solo).
+- Lo aplicado se registra en `ed/` (lotes de correcciones y de preguntas nuevas, `hechas.json`, `borradas.json`, `duplicadas.json`…); `duplicadas_y_dudosas.md` es la propuesta original de duplicadas y dudosas (ya resuelta) y `salidas_antiguas/` guarda salidas de trabajo de esa primera revisión.
 
 ## Material de partida (`material/`)
 
