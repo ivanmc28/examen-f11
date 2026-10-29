@@ -117,6 +117,10 @@ button:disabled{opacity:.4;cursor:not-allowed;}
 .busq-niveles button.active{background:var(--primary);border-color:var(--primary);color:#fff;}
 .busq-entendido{font-size:.82rem;margin-top:8px;color:var(--muted);}
 .busq-entendido .tag{margin-top:4px;}
+.motivos-reporte{display:flex;flex-direction:column;gap:6px;margin:8px 0 12px;}
+.motivos-reporte button{text-align:left;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--soft);color:var(--text);font-size:.9rem;cursor:pointer;}
+.motivos-reporte button.active{background:var(--primary);border-color:var(--primary);color:#fff;}
+.btn-reporte{font-size:.8rem;padding:4px 10px;margin-top:8px;}
 mark{background:var(--amber-bg);color:inherit;border-radius:3px;padding:0 1px;}
 .info-text{font-size:.82rem;color:var(--muted);margin-top:4px;}
 
@@ -301,7 +305,7 @@ function avanzarExamen(){
   else finalizarExamen();
 }
 
-const APP_VERSION = '20261029-145550';
+const APP_VERSION = '20261029-150239';
 const app = document.getElementById('app');
 // La barra de descarga de documentos solo se muestra en la pantalla de inicio.
 function mostrarDocsBar(si){ const d = document.getElementById('docsBar'); if(d) d.classList.toggle('hidden', !si); }
@@ -528,10 +532,12 @@ function renderConfig(errorMsg){
       <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;">
         <button class="btn-outline" id="btnVerHistorial" style="flex:1;">📊 Historial</button>
         <button class="btn-outline" id="btnVerCobertura" style="flex:1;">📈 Cobertura del banco</button>
-        <button class="btn-outline" id="btnRepasarFalladasAcum" style="flex:1;" ${getFalladas().length===0?'disabled':''}>🔁 Repasar falladas acumuladas (${getFalladas().length})</button>
+        <button class="btn-outline" id="btnRepasarFalladasAcum" style="flex:1;" ${getFalladas().length===0?'disabled':''}>🔁 Repasar falladas (${getFalladas().length})</button>
         <button class="btn-outline" id="btnVerMarcadas" style="flex:1;" ${getMarcadas().length===0?'disabled':''}>⭐ Marcadas (${getMarcadas().length})</button>
+        <button class="btn-outline" id="btnVerReportes" style="flex:1;" ${listaReportes().length===0?'disabled':''}>🚩 Mis reportes (${listaReportes().length})</button>
         <button class="btn-outline" id="btnBuscar" style="flex:1;">🔍 Buscar en el banco</button>
       </div>
+      ${getFalladas().length ? `<div class="info-text" style="margin-top:8px;">🔁 El repaso coge hasta ${MAX_REPASO} falladas: primero las que te toca repasar y las que más fallas. Una pregunta sale de las falladas cuando la aciertas ${ACIERTOS_PARA_SALIR} veces seguidas en exámenes distintos.</div>` : ''}
     </div>
   `;
 
@@ -584,9 +590,10 @@ function renderConfig(errorMsg){
   document.getElementById('btnVerHistorial').addEventListener('click', renderHistorial);
   document.getElementById('btnVerCobertura').addEventListener('click', renderCobertura);
   document.getElementById('btnRepasarFalladasAcum').addEventListener('click', ()=>{
-    generarExamenDesdeIds(getFalladas(), false);
+    generarExamenDesdeIds(falladasParaRepasar(), false);
   });
   document.getElementById('btnVerMarcadas').addEventListener('click', renderMarcadas);
+  document.getElementById('btnVerReportes').addEventListener('click', renderReportes);
   document.getElementById('btnBuscar').addEventListener('click', ()=>renderBuscador());
   const btnContinuar = document.getElementById('btnContinuarProgreso');
   if(btnContinuar) btnContinuar.addEventListener('click', continuarProgreso);
@@ -778,6 +785,7 @@ function renderMarcadas(){
       <div style="margin-top:8px;font-size:.9rem;">Respuesta correcta: <strong>${letraCorrecta(q)}) ${textoCorrecto(q)}</strong></div>
       <div class="explicacion-box" style="margin-top:8px;">${q.explicacion}</div>
       <button type="button" class="btn-outline" data-desmarcar="${q.id}" style="margin-top:8px;font-size:.8rem;padding:4px 10px;">☆ Quitar de marcadas</button>
+      ${botonReporteHtml(q.id, false)}
     </div>
   `).join('') || '<div class="info-text">No tienes preguntas marcadas todavía. Pulsa la estrella ☆ durante un examen para guardar aquí las que te llamen la atención.</div>';
 
@@ -978,10 +986,11 @@ function pintarTarjetasBuscador(f, anadir){
       <div class="tag">${q.id}</div>
       <div class="tag">${q.bloque==='reglas'?(q.regla||'Reglas'):(q.articulo||'Normativa')}</div>
       <div class="tag tag-nivel">Dificultad ${q.dificultad} · ${NIVELES_NOMBRE[q.dificultad]}</div>
-      ${marcadas.has(q.id) ? '<div class="tag">⭐ Marcada</div>' : ''}${falladas.has(q.id) ? '<div class="tag">❌ Fallada</div>' : ''}
+      ${marcadas.has(q.id) ? '<div class="tag">⭐ Marcada</div>' : ''}${falladas.has(q.id) ? '<div class="tag">❌ Fallada · ' + textoAciertosRepaso(q.id) + '</div>' : ''}
       <div style="margin-top:8px;font-weight:600;">${resaltar(q.enunciado, f)}</div>
       <div style="margin-top:6px;font-size:.9rem;">Respuesta correcta: <strong>${letraCorrecta(q)}) ${resaltar(textoCorrecto(q), f)}</strong></div>
       <div class="explicacion-box" style="margin-top:8px;">${resaltar(q.explicacion, f)}</div>
+      ${botonReporteHtml(q.id, false)}
     </div>
   `).join('');
   const btnMas = document.getElementById('btnBuscarMas');
@@ -1143,15 +1152,41 @@ function clearHistorial(){ guardarJSON('f11_historial', []); }
 
 function getFalladas(){ return leerJSON('f11_falladas', []).filter(id => !!BANCO_POR_ID[id]); }
 function setFalladasArr(arr){ guardarJSON('f11_falladas', arr); }
+// Repaso de falladas: una pregunta sale del repaso cuando se acierta ACIERTOS_PARA_SALIR veces seguidas
+// (en exámenes distintos). «f11_repaso» guarda por pregunta {f: veces fallada, a: aciertos seguidos desde
+// el último fallo, t: última vez que se respondió}.
+const ACIERTOS_PARA_SALIR = 2;
+const MAX_REPASO = 40;
+const DIA_MS = 24 * 60 * 60 * 1000;
+function getRepaso(){ const r = leerJSON('f11_repaso', {}); return (r && typeof r === 'object' && !Array.isArray(r)) ? r : {}; }
 function actualizarFalladas(examen, respuestas){
-  const falladas = new Set(getFalladas());
+  const falladas = new Set(getFalladas()), rep = getRepaso(), t = Date.now();
   examen.forEach((q,i)=>{
-    const resp = respuestas[i];
-    if(esCorrecta(q, resp)) falladas.delete(q.id);
-    else falladas.add(q.id); // errores y sin responder van al pool de repaso
+    const r = Object.assign({f:0, a:0}, rep[q.id]);
+    if(esCorrecta(q, respuestas[i])){
+      if(!falladas.has(q.id)) return;
+      r.a++; r.t = t;
+      if(r.a >= ACIERTOS_PARA_SALIR) falladas.delete(q.id);
+    }else{
+      r.f++; r.a = 0; r.t = t;       // errores y sin responder vuelven al repaso desde cero
+      falladas.add(q.id);
+    }
+    rep[q.id] = r;
   });
+  guardarJSON('f11_repaso', rep);
   setFalladasArr(Array.from(falladas));
 }
+// Le toca repaso a la que no se ha acertado desde el último fallo o a la que lleva un día sin verse.
+function tocaRepasar(r){ return !r || !r.a || Date.now() - (r.t || 0) >= DIA_MS; }
+// Las falladas que entran en un repaso: primero las que tocan, luego las que más se fallan y las más antiguas.
+function falladasParaRepasar(){
+  const rep = getRepaso();
+  return getFalladas().map(id => ({id, r: rep[id] || {f:1, a:0, t:0}}))
+    .map(x => Object.assign(x, {toca: tocaRepasar(rep[x.id])}))
+    .sort((x, y) => (y.toca - x.toca) || ((y.r.f || 1) - (x.r.f || 1)) || ((x.r.t || 0) - (y.r.t || 0)))
+    .slice(0, MAX_REPASO).map(x => x.id);
+}
+function textoAciertosRepaso(id){ const r = getRepaso()[id]; return (r && r.a ? r.a : 0) + '/' + ACIERTOS_PARA_SALIR + ' aciertos'; }
 
 function getMarcadas(){ return leerJSON('f11_marcadas', []).filter(id => !!BANCO_POR_ID[id]); }
 function esMarcada(id){ return getMarcadas().includes(id); }
@@ -1159,6 +1194,121 @@ function toggleMarcada(id){
   const m = new Set(getMarcadas());
   if(m.has(id)) m.delete(id); else m.add(id);
   guardarJSON('f11_marcadas', Array.from(m));
+}
+
+// ---------- REPORTES DE PREGUNTAS ----------
+// Cada persona puede reportar una pregunta (una vez; si vuelve a hacerlo, lo edita). Se guarda en
+// «f11_reportes» como {id: {m: [motivos], c: comentario, e: enunciado, v: versión, t: fecha}} y se
+// sincroniza con su cuenta. Quitar un reporte lo deja como {borrado: true, t} para que la nube no lo reviva.
+const MOTIVOS_REPORTE = [
+  ['tonta', '🙄 Pregunta tonta (demasiado obvia)'],
+  ['formulada', '🌀 Mal formulada o ambigua'],
+  ['respuesta', '❌ La respuesta correcta está mal'],
+  ['explicacion', '📄 Explicación, referencia o página incorrecta'],
+  ['pista', '🎯 Se adivina sin saber (las opciones dan pista)'],
+  ['repetida', '👯 Repetida (igual que otra)'],
+  ['otro', '✏️ Otro motivo'],
+];
+function getReportes(){ const r = leerJSON('f11_reportes', {}); return (r && typeof r === 'object' && !Array.isArray(r)) ? r : {}; }
+function reporteDe(id){ const r = getReportes()[id]; return r && !r.borrado ? r : null; }
+function listaReportes(){
+  const r = getReportes();
+  return Object.keys(r).filter(id => !r[id].borrado).map(id => Object.assign({id}, r[id])).sort((a, b) => b.t - a.t);
+}
+function guardarReporte(id, datos){ const r = getReportes(); r[id] = Object.assign(datos, {t: Date.now()}); guardarJSON('f11_reportes', r); }
+function escHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c])); }
+function botonReporteHtml(id, compacto){
+  const hecho = !!reporteDe(id);
+  if(compacto) return `<button type="button" data-reportar="${id}" title="Reportar un problema con esta pregunta" style="background:none;border:none;font-size:1.2rem;cursor:pointer;padding:2px 6px;">${hecho ? '🚩' : '⚐'}</button>`;
+  return `<button type="button" class="btn-outline btn-reporte" data-reportar="${id}">${hecho ? '🚩 Reportada (editar)' : '⚐ Reportar pregunta'}</button>`;
+}
+function abrirReporte(id){
+  const q = BANCO_POR_ID[id]; if(!q) return;
+  const previo = reporteDe(id);
+  const elegidos = new Set(previo ? previo.m : []);
+  cerrarAvisoPantalla();
+  const ov = document.createElement('div');
+  ov.id = 'avisoPantalla';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:3000;display:flex;align-items:center;justify-content:center;padding:16px;';
+  ov.innerHTML = '<div class="card" style="max-width:480px;width:100%;margin:0;max-height:90vh;overflow:auto;">' +
+    '<h2 style="margin-top:0;">⚐ Reportar pregunta ' + q.id + '</h2>' +
+    '<div class="info-text">' + escHtml(q.enunciado) + '</div>' +
+    '<div class="info-text" style="margin-top:10px;"><strong>¿Qué le pasa?</strong> Puedes marcar varias.</div>' +
+    '<div class="motivos-reporte">' + MOTIVOS_REPORTE.map(([k, t]) => '<button type="button" data-motivo="' + k + '" class="' + (elegidos.has(k) ? 'active' : '') + '">' + t + '</button>').join('') + '</div>' +
+    '<label for="reporteComentario" style="font-size:.85rem;">Comentario (opcional; obligatorio en «Otro motivo»)</label>' +
+    '<textarea id="reporteComentario" rows="3" style="width:100%;box-sizing:border-box;margin-top:4px;" placeholder="P. ej.: la respuesta B también es correcta según la Regla 12.">' + escHtml(previo ? previo.c || '' : '') + '</textarea>' +
+    '<div id="reporteError" class="error-box hidden" style="margin-top:8px;"></div>' +
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;">' +
+    '<button type="button" class="btn-primary" id="btnReporteGuardar" style="flex:2;">' + (previo ? 'GUARDAR CAMBIOS' : 'ENVIAR REPORTE') + '</button>' +
+    (previo ? '<button type="button" class="btn-danger" id="btnReporteQuitar" style="flex:1;">QUITAR</button>' : '') +
+    '<button type="button" class="btn-outline" id="btnReporteCancelar" style="flex:1;">CANCELAR</button></div>' +
+    (getUsuario() ? '' : '<div class="info-text" style="margin-top:10px;">Sin sesión iniciada, el reporte solo se guarda en este navegador. Entra con tu usuario para que se guarde en tu cuenta.</div>') +
+    '</div>';
+  ov.addEventListener('click', e=>{ if(e.target === ov) cerrarAvisoPantalla(); });
+  document.body.appendChild(ov);
+  ov.querySelectorAll('[data-motivo]').forEach(b => b.addEventListener('click', ()=>{
+    const k = b.dataset.motivo;
+    if(elegidos.has(k)) elegidos.delete(k); else elegidos.add(k);
+    b.classList.toggle('active', elegidos.has(k));
+  }));
+  const terminar = ()=>{ cerrarAvisoPantalla(); refrescarBotonesReporte(id); };
+  document.getElementById('btnReporteCancelar').addEventListener('click', cerrarAvisoPantalla);
+  document.getElementById('btnReporteGuardar').addEventListener('click', ()=>{
+    const c = document.getElementById('reporteComentario').value.trim();
+    const err = document.getElementById('reporteError');
+    const fallo = elegidos.size === 0 ? 'Marca al menos un motivo.' : (elegidos.has('otro') && !c ? 'Explica en el comentario cuál es el otro motivo.' : '');
+    if(fallo){ err.textContent = fallo; err.classList.remove('hidden'); return; }
+    guardarReporte(id, {m: MOTIVOS_REPORTE.map(x => x[0]).filter(k => elegidos.has(k)), c: c, e: q.enunciado.slice(0, 140), v: APP_VERSION});
+    terminar();
+  });
+  const btnQuitar = document.getElementById('btnReporteQuitar');
+  if(btnQuitar) btnQuitar.addEventListener('click', ()=>{ guardarReporte(id, {borrado: true}); terminar(); });
+}
+function refrescarBotonesReporte(id){
+  if(document.getElementById('listaReportes')){ renderReportes(); return; }
+  document.querySelectorAll('[data-reportar="' + id + '"]').forEach(b => { b.outerHTML = botonReporteHtml(id, !b.classList.contains('btn-reporte')); });
+}
+// Un único manejador para todos los botones de reportar, estén en la pantalla que estén.
+document.addEventListener('click', e=>{
+  const b = e.target.closest && e.target.closest('[data-reportar]');
+  if(b){ e.preventDefault(); abrirReporte(b.dataset.reportar); }
+});
+function textoReportes(lista){
+  const nombre = k => (MOTIVOS_REPORTE.find(x => x[0] === k) || [k, k])[1].replace(/^\S+\s/, '');
+  return lista.map(r => r.id + ' · ' + r.m.map(nombre).join(', ') + (r.c ? ' — ' + r.c : '') + '\n  ' + (BANCO_POR_ID[r.id] ? BANCO_POR_ID[r.id].enunciado : r.e)).join('\n\n');
+}
+function renderReportes(){
+  const lista = listaReportes();
+  const nombre = k => (MOTIVOS_REPORTE.find(x => x[0] === k) || [k, k])[1];
+  const itemsHtml = lista.map(r => {
+    const q = BANCO_POR_ID[r.id];
+    return `<div class="review-item">
+      <div class="tag">${r.id}</div>${q ? `<div class="tag">${q.bloque==='reglas'?(q.regla||'Reglas'):(q.articulo||'Normativa')}</div>` : '<div class="tag">Ya no está en el banco</div>'}
+      <div class="tag">${new Date(r.t).toLocaleDateString('es-ES')}</div>
+      <div style="margin-top:8px;font-weight:600;">${q ? q.enunciado : escHtml(r.e || '')}</div>
+      <div style="margin-top:6px;">${r.m.map(k => `<div class="tag tag-nivel">${nombre(k)}</div>`).join('')}</div>
+      ${r.c ? `<div class="explicacion-box" style="margin-top:8px;">${escHtml(r.c)}</div>` : ''}
+      ${q ? `<div style="margin-top:6px;font-size:.9rem;">Respuesta correcta: <strong>${letraCorrecta(q)}) ${textoCorrecto(q)}</strong></div>` : ''}
+      ${q ? botonReporteHtml(r.id, false) : ''}
+    </div>`;
+  }).join('') || '<div class="info-text">No has reportado ninguna pregunta. Pulsa la bandera ⚐ junto a la estrella de una pregunta para avisar de un problema.</div>';
+  app.innerHTML = `
+    <div class="card" id="listaReportes">
+      <h2>🚩 Mis reportes (${lista.length})</h2>
+      <div class="info-text">${getUsuario() ? 'Se guardan en tu cuenta y se sincronizan entre tus dispositivos.' : 'Se guardan solo en este navegador: inicia sesión para guardarlos en tu cuenta.'}</div>
+      <button type="button" class="btn-outline" id="btnCopiarReportes" style="margin:10px 0 12px;" ${lista.length===0?'disabled':''}>📋 COPIAR TODOS COMO TEXTO</button>
+      ${itemsHtml}
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+      <button class="btn-outline" id="btnVolverConfig" style="flex:1;">◀ VOLVER</button>
+    </div>
+  `;
+  document.getElementById('btnVolverConfig').addEventListener('click', ()=>renderConfig());
+  document.getElementById('btnCopiarReportes').addEventListener('click', async ()=>{
+    const btn = document.getElementById('btnCopiarReportes');
+    try{ await navigator.clipboard.writeText(textoReportes(lista)); btn.textContent = '✅ COPIADO'; }
+    catch(e){ avisoEnPantalla(escHtml(textoReportes(lista)), 'CERRAR'); }
+  });
 }
 
 // ---------- COBERTURA DEL BANCO (preguntas ya vistas alguna vez) ----------
@@ -1522,6 +1672,7 @@ function renderPregunta(){
         <span class="badge">Dificultad ${q.dificultad} · ${NIVELES_NOMBRE[q.dificultad]}</span>
         <span class="badge">${q.bloque === 'reglas' ? '⚖️ Reglas de Juego' : '📋 Normativa RFEF'} ${q.regla ? '· '+q.regla : (q.articulo? '· '+q.articulo : '')}</span>
         <button type="button" id="btnMarcar" title="Marcar para repasar más tarde" style="margin-left:auto;background:none;border:none;font-size:1.3rem;cursor:pointer;padding:2px 6px;">${esMarcada(q.id) ? '⭐' : '☆'}</button>
+        ${!modoExamen ? botonReporteHtml(q.id, true) : ''}
       </div>
       ${modoExamen ? `<div class="timer-box" id="timerBox"><div class="timer-top"><span id="timerTxt"></span><span>${bloq ? '⛔ Tiempo agotado: pregunta bloqueada' : 'Tiempo para esta pregunta'}</span></div><div class="timer-bar"><div class="timer-fill" id="timerFill"></div></div></div>` : ''}
       ${modoExamen ? `<div class="info-text">En modo examen no se puede volver atrás: al pasar a la siguiente, la respuesta queda cerrada.</div>` : ''}
@@ -1597,6 +1748,7 @@ function renderFlashcardPregunta(){
         <span class="badge">Dificultad ${q.dificultad} · ${NIVELES_NOMBRE[q.dificultad]}</span>
         <span class="badge">${q.bloque === 'reglas' ? '⚖️ Reglas de Juego' : '📋 Normativa RFEF'} ${q.regla ? '· '+q.regla : (q.articulo? '· '+q.articulo : '')}</span>
         <button type="button" id="btnMarcar" title="Marcar para repasar más tarde" style="margin-left:auto;background:none;border:none;font-size:1.3rem;cursor:pointer;padding:2px 6px;">${esMarcada(q.id) ? '⭐' : '☆'}</button>
+        ${botonReporteHtml(q.id, true)}
       </div>
       <div class="info-text">Piensa tu respuesta y pulsa la tarjeta de la derecha para darle la vuelta. No se guarda ningún acierto ni fallo.<span class="solo-teclado"> Atajos: Espacio/Enter gira la tarjeta o pasa a la siguiente · ← → navega.</span></div>
       <div class="fc-par">
@@ -1735,6 +1887,7 @@ function renderResultados(){
           <div class="info-text" style="margin-top:4px;">Referencia: ${q.referencia || q.regla || q.articulo || '-'} ${q.fuente ? ' · Fuente: ' + q.fuente : ''}</div>
           <div style="margin-top:6px;">${linkFuenteHtml(q)}</div>
         </div>
+        ${botonReporteHtml(q.id, false)}
       </div>
     `;
   }).join('');
@@ -1773,7 +1926,7 @@ function renderResultados(){
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
       <button class="btn-danger" id="btnRepasarFalladasExamen" style="flex:1;" ${errores+sinResponder===0?'disabled':''}>🔁 Repasar falladas de este examen (${errores+sinResponder})</button>
-      <button class="btn-outline" id="btnRepasarFalladasAcum2" style="flex:1;" ${getFalladas().length===0?'disabled':''}>🔁 Repasar todas las falladas acumuladas (${getFalladas().length})</button>
+      <button class="btn-outline" id="btnRepasarFalladasAcum2" style="flex:1;" ${getFalladas().length===0?'disabled':''}>🔁 Repasar falladas acumuladas (${getFalladas().length})</button>
     </div>
 
     <div class="card">
@@ -1793,7 +1946,7 @@ function renderResultados(){
   });
   const btnRepasarAcum2 = document.getElementById('btnRepasarFalladasAcum2');
   if(btnRepasarAcum2) btnRepasarAcum2.addEventListener('click', ()=>{
-    generarExamenDesdeIds(getFalladas(), false);
+    generarExamenDesdeIds(falladasParaRepasar(), false);
   });
 }
 
@@ -1972,7 +2125,7 @@ if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
 // mayúsculas de minúsculas) es la clave de la cuenta. Pega abajo la URL de tu base de datos, sin barra final.
 // Si se deja vacía, la app funciona igual pero sin cuentas.
 var SYNC_URL = 'https://f11-examen-default-rtdb.europe-west1.firebasedatabase.app';
-var SYNC_CLAVES = ['f11_historial', 'f11_falladas', 'f11_marcadas', 'f11_vistas', 'f11_progreso'];
+var SYNC_CLAVES = ['f11_historial', 'f11_falladas', 'f11_marcadas', 'f11_vistas', 'f11_progreso', 'f11_repaso', 'f11_reportes'];
 var sync = {sincronizando:false, pendiente:false, timer:null, estado:'inactivo', ultima:0, error:''};
 var panelUsuario = {modo:'login', u:'', error:'', ocupado:false};
 
@@ -2031,9 +2184,21 @@ function fusionarLista(k, lv, r, rt){
   return {v: (lv === null && v.length === 0) ? null : v, log: log};
 }
 
+// Repaso y reportes se guardan como objeto {id: {..., t}}: al fusionar gana, pregunta a pregunta, la entrada
+// con la fecha «t» más reciente.
+var CLAVES_MAPA = ['f11_repaso', 'f11_reportes'];
+function fusionarMapa(a, b){
+  const esObj = x => !!x && typeof x === 'object' && !Array.isArray(x);
+  if(!esObj(a) && !esObj(b)) return null;
+  const out = Object.assign({}, esObj(a) ? a : {});
+  if(esObj(b)) Object.keys(b).forEach(id=>{ const x = b[id]; if(x && (!out[id] || (x.t || 0) > (out[id].t || 0))) out[id] = x; });
+  return out;
+}
+
 // Fusiona lo que hay en este dispositivo con lo que hay en la nube.
 //  - historial y vistas: se juntan (unión), nunca se pierde nada.
 //  - falladas y marcadas: pregunta a pregunta, gana el cambio más reciente (ver fusionarLista).
+//  - repaso y reportes: pregunta a pregunta, gana la entrada más reciente (ver fusionarMapa).
 //  - examen en curso: gana el cambio más reciente (también si se descartó o terminó).
 function fusionarConNube(remoto, primera){
   const res = {doc:{}, cambiaLocal:false, cambiaRemoto:false, aplicar:[]};
@@ -2055,6 +2220,9 @@ function fusionarConNube(remoto, primera){
       t = Math.max(lt, rt);
     }else if(k === 'f11_vistas'){
       v = (lv === null && rv === null) ? null : unirListas(lv, rv, x=>x);
+      t = Math.max(lt, rt);
+    }else if(CLAVES_MAPA.indexOf(k) !== -1){
+      v = fusionarMapa(lv, rv);
       t = Math.max(lt, rt);
     }else{
       if(lt >= rt){ v = lv; t = lt; } else { v = rv; t = rt; }
@@ -2292,7 +2460,7 @@ setInterval(()=>{ if(getUsuario() && SYNC_URL && document.visibilityState === 'v
 // Cuando se borra una pregunta y su ID queda libre, se borra también todo su rastro guardado en el
 // navegador (falladas, marcadas, vistas). Si más adelante ese ID se reutiliza para una pregunta nueva,
 // se sube su número de época y todos los navegadores vuelven a limpiar, para que la nueva empiece de cero.
-const EPOCAS_IDS = {'RJ6-049': 1, 'RJ8-010': 1, 'RJ1-012': 1, 'RJ1-048': 1, 'RJ1-060': 1, 'RJ3-010': 2, 'RJ4-012': 1, 'RJ4-048': 1, 'RJ6-026': 1, 'RJ6-051': 1, 'RJ12-083': 1, 'RJ14-011': 1, 'RJ16-035': 1, 'RJ1-015': 1, 'RJ1-096': 1, 'RJ2-021': 1, 'RJ2-037': 1, 'RJ2-039': 1, 'RJ6-027': 1, 'RJ7-004': 1, 'RJ8-004': 2, 'RJ8-006': 1, 'RJ8-011': 1, 'RJ8-015': 1, 'RJ8-031': 1, 'RJ8-033': 1, 'RJ8-009': 1, 'RJ10-001': 1, 'RJ10-002': 1, 'RJ13-006': 1, 'RJ13-020': 1, 'RJ14-025': 1, 'RJ14-010': 1, 'RJ16-005': 2, 'RJ17-003': 1, 'RJ12-027': 1, 'RJ12-215': 1, 'RJ5-047': 1, 'RJ5-046': 1, 'RJ7-003': 1, 'RJ6-003': 1, 'GL-003': 1, 'GL-055': 1, 'GL-057': 1, 'GL-058': 1, 'GL-059': 1, 'GL-070': 1, 'RJ3-095': 1, 'RJ4-005': 1, 'RJ4-010': 1, 'RJ5-005': 2, 'RJ5-006': 2, 'RJ5-013': 1, 'RJ5-040': 1, 'RJ6-004': 1, 'RJ7-002': 1, 'RJ9-006': 1, 'RJ10-005': 1, 'RJ10-006': 1, 'RJ10-009': 1, 'RJ12-088': 1, 'RJ14-009': 1, 'RJ14-055': 1, 'RJ17-009': 1, 'VAR-006': 1, 'RJ7-023': 1, 'RJ1-105': 1, 'RJ1-110': 1, 'RJ3-090': 1, 'RJ3-094': 1, 'RJ4-069': 1, 'RJ4-078': 1, 'RJ4-079': 1, 'RJ4-082': 1, 'RJ5-061': 1, 'RJ5-062': 1, 'RJ5-063': 1, 'RJ5-069': 1, 'RJ6-045': 1, 'RJ10-043': 1, 'RJ10-055': 1, 'RJ16-034': 1, 'GL-061': 1, 'GL-062': 1, 'GL-063': 1, 'GL-064': 1, 'BC-053': 1, 'BC-054': 1, 'BC-055': 1, 'BC-056': 1, 'BC-059': 1, 'BC-064': 1, 'BC-065': 1, 'BC-058': 1, 'RC-179': 1, 'RC-186': 1, 'RC-197': 1, 'RC-199': 1, 'RC-200': 1, 'RC-201': 1, 'RJ13-004': 1, 'RJ13-046': 1, 'RJ13-043': 1, 'RJ13-061': 1, 'RJ1-093': 1, 'RJ11-059': 1, 'RJ9-014': 1, 'RJ9-020': 1, 'RJ9-022': 1, 'RJ11-055': 1, 'RJ11-060': 1, 'RJ9-010': 1, 'RJ9-016': 1, 'RJ9-019': 1, 'RJ12-186': 1, 'RJ12-190': 1, 'RJ11-024': 1, 'RJ11-025': 1, 'RJ8-045': 1, 'RJ12-081': 1, 'RJ12-082': 1, 'RJ12-055': 1, 'RJ15-018': 1, 'RJ16-017': 1, 'RJ16-019': 1, 'RJ17-012': 1, 'RJ17-013': 1, 'RJ15-021': 1, 'RJ15-025': 1, 'RJ15-011': 1, 'RJ15-009': 2, 'RJ14-045': 1, 'RJ14-035': 1, 'RJ14-029': 1, 'RJ13-033': 1, 'RJ13-013': 1, 'RJ11-043': 1, 'RJ11-046': 1, 'RJ3-015': 2, 'RJ3-038': 1, 'RJ14-042': 1, 'RJ14-044': 1, 'RJ14-028': 1, 'RJ14-054': 1, 'RJ14-046': 1, 'RJ2-013': 1, 'RJ2-014': 1, 'RJ2-018': 1, 'RJ2-019': 1, 'RJ2-024': 1, 'RJ15-033': 1, 'RJ17-023': 1, 'RJ8-035': 1, 'RJ8-041': 1, 'RJ13-003': 1, 'RJ16-007': 2, 'RJ16-032': 1, 'RJ16-025': 1, 'RJ17-006': 1, 'RJ17-021': 1, 'RJ13-010': 1, 'RJ13-038': 1, 'RJ8-028': 1, 'RJ15-003': 2, 'RJ8-030': 1, 'RJ13-009': 1, 'RJ17-005': 1, 'RJ8-018': 1, 'RJ13-030': 1, 'RJ14-027': 1, 'RJ16-023': 1, 'RJ17-014': 1, 'RJ17-024': 1, 'RJ13-031': 1, 'RJ16-018': 1, 'RJ17-018': 1, 'RJ17-015': 1, 'RJ16-014': 1, 'RJ17-010': 1, 'RJ17-016': 1, 'RJ16-024': 1, 'RJ14-062': 1, 'RJ17-039': 1, 'RJ11-011': 1, 'RJ6-021': 1, 'RJ5-043': 1, 'RJ5-042': 1, 'RJ11-007': 1, 'RJ17-032': 1, 'RJ7-035': 1, 'RJ13-011': 1, 'RJ13-047': 1, 'RJ5-056': 1, 'RJ6-024': 1, 'RJ6-050': 1, 'RJ7-020': 1, 'RJ7-021': 1, 'RJ7-022': 1, 'RJ7-041': 1, 'RJ7-046': 1, 'RJ7-016': 1, 'RJ7-017': 1, 'RJ5-092': 1, 'RJ14-051': 1, 'RJ14-065': 1, 'RJ8-036': 1, 'RJ8-027': 1, 'RJ11-006': 1, 'RJ11-015': 1, 'RJ11-016': 1, 'RJ11-017': 1, 'RJ11-050': 1, 'RJ2-016': 1, 'RJ2-042': 1, 'RJ12-109': 1, 'RJ12-130': 1, 'RJ12-131': 1, 'RJ12-241': 1, 'RJ12-143': 1, 'RJ12-197': 1, 'RJ12-046': 1, 'RJ12-210': 1, 'RJ12-223': 1, 'RJ12-224': 1, 'RJ12-175': 1, 'RJ12-222': 1, 'RJ12-179': 1, 'RJ12-227': 1, 'RJ12-040': 1, 'RJ12-076': 1, 'RJ12-073': 1, 'RJ12-202': 1, 'RJ12-138': 1, 'RJ12-214': 1, 'RJ12-077': 1, 'RJ12-199': 1, 'RJ12-217': 1, 'RJ12-102': 1, 'RJ12-172': 1, 'RJ12-218': 1, 'RJ12-136': 1, 'RJ12-163': 1, 'RJ12-209': 1, 'RJ12-207': 1, 'RJ12-230': 1, 'RJ11-047': 1, 'RJ11-041': 1, 'RJ11-044': 1, 'RC-176': 1, 'RC-177': 1, 'RC-178': 1, 'RC-185': 1, 'RC-188': 1, 'RC-190': 1, 'RC-191': 1, 'RJ15-049': 1, 'RJ15-050': 1, 'RJ16-042': 1, 'RJ16-043': 1, 'RJ16-046': 1, 'RJ17-037': 1, 'RJ2-043': 1, 'RJ4-084': 1, 'RJ4-086': 1, 'RJ6-054': 1, 'RJ6-058': 1, 'RJ8-053': 1, 'RJ8-056': 1, 'RJ10-062': 1, 'RJ10-063': 1, 'RJ1-107': 1, 'RJ1-109': 1, 'RJ1-113': 1, 'RJ5-089': 1, 'RC-040': 1, 'RJ10-010': 1, 'RJ10-023': 1, 'RJ10-065': 1, 'RJ2-022': 1, 'RJ3-018': 2, 'RJ3-070': 1, 'RJ1-009': 1, 'RJ1-014': 1, 'RJ1-058': 1, 'RJ1-094': 1, 'RJ1-098': 1, 'RJ1-100': 1, 'RJ2-002': 1, 'RJ3-014': 2, 'RJ3-033': 1, 'RJ11-001': 1, 'RJ12-004': 2, 'RJ12-010': 2, 'RJ12-234': 1, 'RJ12-239': 1, 'RJ12-021': 3, 'RJ5-066': 1, 'RJ16-008': 1, 'RJ8-047': 1, 'RJ10-042': 1, 'RJ12-169': 1, 'RJ3-011': 2, 'RJ8-044': 1, 'RJ12-128': 1, 'RJ16-029': 1, 'RJ5-075': 1, 'RJ9-031': 1, 'RJ8-049': 1, 'RJ8-051': 1, 'RJ8-052': 1, 'RJ8-055': 1, 'RJ8-057': 1, 'RJ3-088': 1, 'RJ7-038': 1, 'RJ7-039': 1, 'RJ14-059': 1, 'RJ14-061': 1, 'RJ14-063': 1, 'RJ13-049': 1, 'RJ16-030': 1, 'RJ5-081': 1, 'RJ3-084': 1, 'RJ8-039': 1, 'RJ8-040': 1, 'RJ8-048': 1, 'RJ9-028': 1, 'RJ10-041': 1, 'RJ15-028': 1, 'RJ16-038': 1, 'RJ7-037': 1, 'RJ7-045': 1, 'RJ6-056': 1, 'RJ12-118': 1, 'RJ4-070': 1, 'RJ4-009': 1, 'RJ2-036': 1, 'VAR-002': 1, 'RJ5-011': 1, 'RJ10-038': 1, 'VAR-016': 1, 'RJ17-022': 1, 'RC-042': 1, 'RJ7-043': 1, 'RJ6-036': 1, 'RJ10-056': 1, 'RJ15-040': 1, 'RJ17-026': 1, 'RJ12-238': 1, 'RJ12-001': 1, 'RJ1-087': 1, 'RJ1-088': 1, 'RJ1-106': 1, 'RJ2-027': 1, 'RJ2-033': 1, 'RJ3-003': 1, 'RJ3-086': 1, 'RJ4-008': 1, 'RJ4-068': 1, 'RJ7-032': 1, 'RJ12-003': 1, 'RJ12-022': 1, 'RJ12-233': 1, 'RJ13-060': 1, 'RJ14-004': 1, 'RJ14-052': 1, 'GL-071': 1};
+const EPOCAS_IDS = {'RJ6-049': 2, 'RJ8-010': 1, 'RJ1-012': 2, 'RJ1-048': 1, 'RJ1-060': 1, 'RJ3-010': 2, 'RJ4-012': 1, 'RJ4-048': 1, 'RJ6-026': 2, 'RJ6-051': 2, 'RJ12-083': 1, 'RJ14-011': 1, 'RJ16-035': 1, 'RJ1-015': 1, 'RJ1-096': 1, 'RJ2-021': 1, 'RJ2-037': 1, 'RJ2-039': 1, 'RJ6-027': 2, 'RJ7-004': 1, 'RJ8-004': 2, 'RJ8-006': 1, 'RJ8-011': 1, 'RJ8-015': 1, 'RJ8-031': 1, 'RJ8-033': 1, 'RJ8-009': 1, 'RJ10-001': 2, 'RJ10-002': 1, 'RJ13-006': 1, 'RJ13-020': 1, 'RJ14-025': 1, 'RJ14-010': 1, 'RJ16-005': 2, 'RJ17-003': 1, 'RJ12-027': 1, 'RJ12-215': 1, 'RJ5-047': 1, 'RJ5-046': 2, 'RJ7-003': 1, 'RJ6-003': 2, 'GL-003': 1, 'GL-055': 1, 'GL-057': 1, 'GL-058': 1, 'GL-059': 1, 'GL-070': 1, 'RJ3-095': 2, 'RJ4-005': 1, 'RJ4-010': 1, 'RJ5-005': 2, 'RJ5-006': 2, 'RJ5-013': 2, 'RJ5-040': 2, 'RJ6-004': 2, 'RJ7-002': 2, 'RJ9-006': 1, 'RJ10-005': 1, 'RJ10-006': 1, 'RJ10-009': 1, 'RJ12-088': 1, 'RJ14-009': 2, 'RJ14-055': 1, 'RJ17-009': 1, 'VAR-006': 2, 'RJ7-023': 1, 'RJ1-105': 1, 'RJ1-110': 1, 'RJ3-090': 2, 'RJ3-094': 2, 'RJ4-069': 1, 'RJ4-078': 1, 'RJ4-079': 1, 'RJ4-082': 1, 'RJ5-061': 1, 'RJ5-062': 1, 'RJ5-063': 1, 'RJ5-069': 1, 'RJ6-045': 2, 'RJ10-043': 1, 'RJ10-055': 1, 'RJ16-034': 1, 'GL-061': 1, 'GL-062': 1, 'GL-063': 1, 'GL-064': 1, 'BC-053': 1, 'BC-054': 1, 'BC-055': 1, 'BC-056': 1, 'BC-059': 1, 'BC-064': 1, 'BC-065': 1, 'BC-058': 1, 'RC-179': 1, 'RC-186': 1, 'RC-197': 1, 'RC-199': 1, 'RC-200': 1, 'RC-201': 1, 'RJ13-004': 1, 'RJ13-046': 1, 'RJ13-043': 1, 'RJ13-061': 1, 'RJ1-093': 1, 'RJ11-059': 1, 'RJ9-014': 1, 'RJ9-020': 1, 'RJ9-022': 1, 'RJ11-055': 1, 'RJ11-060': 1, 'RJ9-010': 1, 'RJ9-016': 1, 'RJ9-019': 1, 'RJ12-186': 1, 'RJ12-190': 1, 'RJ11-024': 1, 'RJ11-025': 1, 'RJ8-045': 1, 'RJ12-081': 1, 'RJ12-082': 1, 'RJ12-055': 1, 'RJ15-018': 1, 'RJ16-017': 1, 'RJ16-019': 1, 'RJ17-012': 1, 'RJ17-013': 1, 'RJ15-021': 1, 'RJ15-025': 1, 'RJ15-011': 1, 'RJ15-009': 2, 'RJ14-045': 1, 'RJ14-035': 1, 'RJ14-029': 1, 'RJ13-033': 1, 'RJ13-013': 1, 'RJ11-043': 1, 'RJ11-046': 1, 'RJ3-015': 2, 'RJ3-038': 2, 'RJ14-042': 1, 'RJ14-044': 1, 'RJ14-028': 1, 'RJ14-054': 1, 'RJ14-046': 1, 'RJ2-013': 1, 'RJ2-014': 1, 'RJ2-018': 1, 'RJ2-019': 1, 'RJ2-024': 1, 'RJ15-033': 1, 'RJ17-023': 1, 'RJ8-035': 1, 'RJ8-041': 1, 'RJ13-003': 1, 'RJ16-007': 2, 'RJ16-032': 1, 'RJ16-025': 1, 'RJ17-006': 1, 'RJ17-021': 1, 'RJ13-010': 1, 'RJ13-038': 1, 'RJ8-028': 1, 'RJ15-003': 2, 'RJ8-030': 1, 'RJ13-009': 1, 'RJ17-005': 1, 'RJ8-018': 1, 'RJ13-030': 1, 'RJ14-027': 1, 'RJ16-023': 1, 'RJ17-014': 1, 'RJ17-024': 1, 'RJ13-031': 1, 'RJ16-018': 1, 'RJ17-018': 1, 'RJ17-015': 1, 'RJ16-014': 1, 'RJ17-010': 1, 'RJ17-016': 1, 'RJ16-024': 1, 'RJ14-062': 1, 'RJ17-039': 1, 'RJ11-011': 1, 'RJ6-021': 2, 'RJ5-043': 2, 'RJ5-042': 2, 'RJ11-007': 1, 'RJ17-032': 1, 'RJ7-035': 1, 'RJ13-011': 1, 'RJ13-047': 1, 'RJ5-056': 1, 'RJ6-024': 2, 'RJ6-050': 2, 'RJ7-020': 1, 'RJ7-021': 1, 'RJ7-022': 1, 'RJ7-041': 1, 'RJ7-046': 1, 'RJ7-016': 1, 'RJ7-017': 1, 'RJ5-092': 1, 'RJ14-051': 1, 'RJ14-065': 1, 'RJ8-036': 1, 'RJ8-027': 1, 'RJ11-006': 2, 'RJ11-015': 1, 'RJ11-016': 1, 'RJ11-017': 1, 'RJ11-050': 1, 'RJ2-016': 1, 'RJ2-042': 1, 'RJ12-109': 1, 'RJ12-130': 1, 'RJ12-131': 1, 'RJ12-241': 1, 'RJ12-143': 1, 'RJ12-197': 1, 'RJ12-046': 1, 'RJ12-210': 1, 'RJ12-223': 1, 'RJ12-224': 1, 'RJ12-175': 1, 'RJ12-222': 1, 'RJ12-179': 1, 'RJ12-227': 1, 'RJ12-040': 1, 'RJ12-076': 1, 'RJ12-073': 1, 'RJ12-202': 1, 'RJ12-138': 1, 'RJ12-214': 1, 'RJ12-077': 1, 'RJ12-199': 1, 'RJ12-217': 1, 'RJ12-102': 1, 'RJ12-172': 1, 'RJ12-218': 1, 'RJ12-136': 1, 'RJ12-163': 1, 'RJ12-209': 1, 'RJ12-207': 1, 'RJ12-230': 1, 'RJ11-047': 1, 'RJ11-041': 1, 'RJ11-044': 1, 'RC-176': 1, 'RC-177': 1, 'RC-178': 1, 'RC-185': 1, 'RC-188': 1, 'RC-190': 1, 'RC-191': 1, 'RJ15-049': 1, 'RJ15-050': 1, 'RJ16-042': 1, 'RJ16-043': 1, 'RJ16-046': 1, 'RJ17-037': 1, 'RJ2-043': 1, 'RJ4-084': 1, 'RJ4-086': 1, 'RJ6-054': 2, 'RJ6-058': 1, 'RJ8-053': 1, 'RJ8-056': 1, 'RJ10-062': 1, 'RJ10-063': 1, 'RJ1-107': 1, 'RJ1-109': 1, 'RJ1-113': 1, 'RJ5-089': 1, 'RC-040': 1, 'RJ10-010': 1, 'RJ10-023': 1, 'RJ10-065': 1, 'RJ2-022': 1, 'RJ3-018': 2, 'RJ3-070': 2, 'RJ1-009': 2, 'RJ1-014': 1, 'RJ1-058': 1, 'RJ1-094': 1, 'RJ1-098': 1, 'RJ1-100': 1, 'RJ2-002': 1, 'RJ3-014': 2, 'RJ3-033': 2, 'RJ11-001': 1, 'RJ12-004': 2, 'RJ12-010': 2, 'RJ12-234': 1, 'RJ12-239': 1, 'RJ12-021': 4, 'RJ5-066': 1, 'RJ16-008': 1, 'RJ8-047': 1, 'RJ10-042': 1, 'RJ12-169': 1, 'RJ3-011': 2, 'RJ8-044': 1, 'RJ12-128': 1, 'RJ16-029': 1, 'RJ5-075': 1, 'RJ9-031': 1, 'RJ8-049': 1, 'RJ8-051': 1, 'RJ8-052': 1, 'RJ8-055': 1, 'RJ8-057': 1, 'RJ3-088': 2, 'RJ7-038': 1, 'RJ7-039': 1, 'RJ14-059': 1, 'RJ14-061': 1, 'RJ14-063': 1, 'RJ13-049': 1, 'RJ16-030': 1, 'RJ5-081': 1, 'RJ3-084': 2, 'RJ8-039': 1, 'RJ8-040': 1, 'RJ8-048': 1, 'RJ9-028': 1, 'RJ10-041': 1, 'RJ15-028': 1, 'RJ16-038': 1, 'RJ7-037': 1, 'RJ7-045': 1, 'RJ6-056': 1, 'RJ12-118': 1, 'RJ4-070': 1, 'RJ4-009': 1, 'RJ2-036': 1, 'VAR-002': 1, 'RJ5-011': 1, 'RJ10-038': 1, 'VAR-016': 1, 'RJ17-022': 1, 'RC-042': 1, 'RJ7-043': 1, 'RJ6-036': 2, 'RJ10-056': 1, 'RJ15-040': 1, 'RJ17-026': 1, 'RJ12-238': 1, 'RJ12-001': 1, 'RJ1-087': 1, 'RJ1-088': 1, 'RJ1-106': 1, 'RJ2-027': 1, 'RJ2-033': 1, 'RJ3-003': 1, 'RJ3-086': 1, 'RJ4-008': 1, 'RJ4-068': 1, 'RJ7-032': 1, 'RJ12-003': 1, 'RJ12-022': 1, 'RJ12-233': 1, 'RJ13-060': 1, 'RJ14-004': 1, 'RJ14-052': 1, 'GL-071': 1, 'BC-026': 1, 'BC-027': 1, 'RC-183': 1, 'RC-187': 1, 'RC-189': 1, 'RC-195': 1, 'RC-196': 1, 'RJ12-012': 1, 'RJ3-004': 1, 'RJ3-032': 1, 'RJ3-037': 1, 'RJ3-045': 1, 'RJ3-050': 1, 'RJ3-079': 1, 'RJ3-087': 1, 'RJ3-091': 1, 'RJ3-092': 1, 'RJ3-093': 1, 'RJ5-001': 1, 'RJ6-025': 1, 'RJ6-034': 1, 'RJ6-039': 1, 'RJ6-044': 1, 'RJ6-047': 1, 'RJ6-055': 1, 'VAR-014': 1, 'VAR-046': 1, 'VAR-048': 1, 'VAR-050': 1, 'VAR-056': 1, 'VAR-058': 1};
 function limpiarRegistrosReciclados(){
   const guardadas = leerJSON('f11_epocas', {});
   const pendientes = Object.keys(EPOCAS_IDS).filter(id => (guardadas[id] || 0) < EPOCAS_IDS[id]);
@@ -2304,6 +2472,11 @@ function limpiarRegistrosReciclados(){
       if(nuevo.length !== arr.length) guardarJSON(k, nuevo);
     }
   });
+  const rep = getRepaso();
+  if(pendientes.some(id => rep[id])){
+    pendientes.forEach(id => { if(rep[id]) rep[id] = {f:0, a:0, t: Date.now()}; });
+    guardarJSON('f11_repaso', rep);
+  }
   pendientes.forEach(id => { guardadas[id] = EPOCAS_IDS[id]; });
   guardarJSON('f11_epocas', guardadas);
 }

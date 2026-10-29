@@ -19,6 +19,13 @@ App de exámenes de ascenso arbitral de Fútbol 11 (CTA/RFEF).
 - `revision/` y `material/`: locales, fuera de git (ver abajo).
 - Si se mueve o renombra un archivo que use la app, actualizar sus rutas en `index.html`, el manifest y `sw.js`, y subir la versión de `CACHE` en `sw.js`.
 
+## Progreso, repaso y reportes
+
+- Cada usuario guarda su progreso en Firebase (`/usuarios/<usuario>`); las reglas solo permiten leer y escribir dentro de ese espacio.
+- Falladas: una pregunta sale del repaso tras `ACIERTOS_PARA_SALIR` (2) aciertos seguidos en exámenes distintos; `f11_repaso` guarda fallos, aciertos seguidos y fecha. El repaso coge hasta `MAX_REPASO` (40), empezando por las que tocan y las más falladas.
+- Reportes de preguntas: se guardan en `f11_reportes` de la cuenta de quien reporta. `revision/reportes.py USUARIO` los lista (solo lectura) para revisarlos.
+- `EPOCAS_IDS`: al borrar una pregunta o reutilizar un ID se sube su época para que los navegadores olviden lo guardado de la anterior. `sync.py` lo hace solo.
+
 ## Reglas del banco de preguntas
 
 - **No renumerar IDs.** Si se borra una pregunta, su ID queda como hueco. Las preguntas nuevas ocupan primero los huecos de su bloque.

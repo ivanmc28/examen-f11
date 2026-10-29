@@ -1,4 +1,5 @@
-// Service worker: primero red SIN caché (así siempre llega la versión nueva) y, sin conexión, lo guardado.
+// Service worker: primero la red, preguntando siempre al servidor si hay versión nueva («no-cache»: si no ha
+// cambiado responde 304 y no se vuelve a descargar) y, sin conexión, lo guardado.
 const CACHE = 'f11-v4';
 const PRECACHE = ['./', 'index.html', 'manifest.webmanifest', 'iconos/icon-192.png', 'iconos/icon-512.png', 'iconos/apple-touch-icon.png'];
 
@@ -19,7 +20,7 @@ self.addEventListener('fetch', e => {
   if (req.method !== 'GET' || url.origin !== self.location.origin) return;
   if (/\.pdf$/i.test(url.pathname)) return;               // los PDF van directos, sin tocarlos
   e.respondWith(
-    fetch(req, {cache: 'no-store'}).then(res => {
+    fetch(req, {cache: 'no-cache'}).then(res => {
       if (res && res.status === 200) {
         const copia = res.clone();
         caches.open(CACHE).then(c => c.put(req, copia));
