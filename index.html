@@ -305,7 +305,7 @@ function avanzarExamen(){
   else finalizarExamen();
 }
 
-const APP_VERSION = '20261029-155545';
+const APP_VERSION = '20261029-155838';
 const app = document.getElementById('app');
 // La barra de descarga de documentos solo se muestra en la pantalla de inicio.
 function mostrarDocsBar(si){ const d = document.getElementById('docsBar'); if(d) d.classList.toggle('hidden', !si); }
@@ -1222,7 +1222,8 @@ function guardarReporte(id, datos){ const r = getReportes(); r[id] = Object.assi
 // la app pasa los nombres a minúsculas). Para no pisar reportes de otros, se escribe solo si nadie lo ha
 // cambiado desde que se leyó (ETag + if-match) y, si no, se vuelve a leer e intentar. Lo que no se pueda
 // enviar (sin conexión) queda en «f11_buzon_pendientes» y se reintenta al abrir la app.
-var BUZON_URL = SYNC_URL ? SYNC_URL + '/usuarios/BUZON-REPORTES.json' : '';
+// Función y no variable: SYNC_URL se define más abajo, en la sección de sincronización.
+function urlBuzon(){ return SYNC_URL ? SYNC_URL + '/usuarios/BUZON-REPORTES.json' : ''; }
 function idDispositivo(){
   try{
     let d = localStorage.getItem('f11_dispositivo');
@@ -1231,7 +1232,7 @@ function idDispositivo(){
   }catch(e){ return 'anon'; }
 }
 function encolarBuzon(id, rep){
-  if(!BUZON_URL) return;
+  if(!urlBuzon()) return;
   const u = getUsuario() || idDispositivo();
   const pend = leerJSON('f11_buzon_pendientes', {});
   pend[u + '|' + id] = Object.assign({u: u, id: id}, rep);
@@ -1240,20 +1241,20 @@ function encolarBuzon(id, rep){
 }
 var _enviandoBuzon = false;
 async function enviarBuzon(){
-  if(!BUZON_URL || _enviandoBuzon) return;
+  if(!urlBuzon() || _enviandoBuzon) return;
   const pend = leerJSON('f11_buzon_pendientes', {});
   const claves = Object.keys(pend);
   if(claves.length === 0) return;
   _enviandoBuzon = true;
   try{
     for(let intento = 0; intento < 5; intento++){
-      const r = await fetch(BUZON_URL, {cache:'no-store', headers:{'X-Firebase-ETag':'true'}});
+      const r = await fetch(urlBuzon(), {cache:'no-store', headers:{'X-Firebase-ETag':'true'}});
       if(!r.ok) throw new Error('HTTP ' + r.status);
       const etag = r.headers.get('ETag');
       const doc = await r.json();
       const lista = doc && doc.datos ? JSON.parse(doc.datos) : {};
       claves.forEach(k=>{ if(!lista[k] || (lista[k].t || 0) < pend[k].t) lista[k] = pend[k]; });
-      const w = await fetch(BUZON_URL, {method:'PUT', headers:{'Content-Type':'application/json', 'if-match': etag},
+      const w = await fetch(urlBuzon(), {method:'PUT', headers:{'Content-Type':'application/json', 'if-match': etag},
         body: JSON.stringify({actualizado: Date.now(), datos: JSON.stringify(lista)})});
       if(w.status === 412) continue;             // otro lo cambió entre medias: leer de nuevo
       if(!w.ok) throw new Error('HTTP ' + w.status);
