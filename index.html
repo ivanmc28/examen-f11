@@ -306,7 +306,7 @@ function avanzarExamen(){
   else finalizarExamen();
 }
 
-const APP_VERSION = '20261101-213203';
+const APP_VERSION = '20261101-213427';
 const app = document.getElementById('app');
 // La barra de descarga de documentos solo se muestra en la pantalla de inicio.
 function mostrarDocsBar(si){ const d = document.getElementById('docsBar'); if(d) d.classList.toggle('hidden', !si); }
@@ -605,7 +605,7 @@ function renderConfig(errorMsg){
 // ---------- PANTALLA DE HISTORIAL ----------
 // La evolución solo cuenta exámenes (no repasos) con al menos MIN_RESPONDIDAS preguntas respondidas;
 // los demás siguen saliendo en el listado del historial.
-const MIN_RESPONDIDAS = 19;
+const MIN_RESPONDIDAS = 20;
 function cuentaEnEvolucion(e){ return !e.esRepaso && e.total - (e.sinResponder || 0) >= MIN_RESPONDIDAS; }
 // Gráfica de la nota (%) de los exámenes, en orden cronológico
 function graficaEvolucion(examenes){
