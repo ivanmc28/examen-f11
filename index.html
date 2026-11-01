@@ -306,7 +306,7 @@ function avanzarExamen(){
   else finalizarExamen();
 }
 
-const APP_VERSION = '20261101-211935';
+const APP_VERSION = '20261101-213203';
 const app = document.getElementById('app');
 // La barra de descarga de documentos solo se muestra en la pantalla de inicio.
 function mostrarDocsBar(si){ const d = document.getElementById('docsBar'); if(d) d.classList.toggle('hidden', !si); }
@@ -603,9 +603,13 @@ function renderConfig(errorMsg){
 }
 
 // ---------- PANTALLA DE HISTORIAL ----------
-// Gráfica de la nota (%) de los exámenes, en orden cronológico; los repasos no cuentan
+// La evolución solo cuenta exámenes (no repasos) con al menos MIN_RESPONDIDAS preguntas respondidas;
+// los demás siguen saliendo en el listado del historial.
+const MIN_RESPONDIDAS = 19;
+function cuentaEnEvolucion(e){ return !e.esRepaso && e.total - (e.sinResponder || 0) >= MIN_RESPONDIDAS; }
+// Gráfica de la nota (%) de los exámenes, en orden cronológico
 function graficaEvolucion(examenes){
-  if(examenes.length < 2) return '<div class="info-text">Haz al menos dos exámenes (no repasos) para ver tu evolución.</div>';
+  if(examenes.length < 2) return `<div class="info-text">Haz al menos dos exámenes (no repasos) con ${MIN_RESPONDIDAS} preguntas respondidas o más para ver tu evolución.</div>`;
   // El ancho del dibujo sigue al de la pantalla para que el texto no se encoja en el móvil
   const W = Math.round(Math.min(600, Math.max(280, (app.clientWidth || 600) - 42))), H = 220, iz = 34, de = 12, ar = 12, ab = 26;
   const x = i => iz + (examenes.length === 1 ? 0 : i * (W - iz - de) / (examenes.length - 1));
@@ -668,7 +672,7 @@ function tendenciaPorRegla(examenes){
 }
 
 function renderHistorial(){
-  const examenes = getHistorial().filter(e => !e.esRepaso);
+  const examenes = getHistorial().filter(cuentaEnEvolucion);
   const h = getHistorial().slice().reverse(); // más reciente primero
   const filas = h.map(e=>{
     const fecha = new Date(e.fecha);
@@ -691,7 +695,7 @@ function renderHistorial(){
   const reglasHtml = reglasOrdenadas.map(r=>`<div class="stat-row"><span>${r.regla}</span><span>${r.ok}/${r.total} (${r.pct.toFixed(0)}%)</span></div>`).join('') || '<div class="info-text">Sin datos suficientes todavía.</div>';
 
   const n = examenes.length;
-  const media = (lista) => lista.length ? Math.round(lista.reduce((t, e) => t + e.pct, 0) / lista.length) : 0;
+  const media = (lista) => lista.length ? Math.round(lista.reduce((t, e) => t + Number(e.pct), 0) / lista.length) : 0;
   const resumen = n ? `<div class="summary-block" style="margin-bottom:6px;">
         <div><div class="num">${n}</div>Exámenes</div>
         <div><div class="num">${media(examenes)}%</div>Nota media</div>
