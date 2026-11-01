@@ -136,6 +136,7 @@ mark{background:var(--amber-bg);color:inherit;border-radius:3px;padding:0 1px;}
 .progress-grid .solo-ver{cursor:default;}
 .progress-grid .solo-ver:hover{opacity:1;}
 #btnMarcar{min-width:44px;min-height:44px;}
+.btn-bandera{background:none;border:none;font-size:1.2rem;cursor:pointer;padding:2px 6px;min-width:44px;min-height:44px;color:var(--text);}
 /* Flashcard: tarjeta de pregunta y tarjeta de respuesta que se gira */
 .fc-par{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:6px;}
 .fc-tarjeta{border:2px solid var(--border);border-radius:10px;padding:16px;background:var(--card);min-height:220px;}
@@ -305,7 +306,7 @@ function avanzarExamen(){
   else finalizarExamen();
 }
 
-const APP_VERSION = '20261029-155838';
+const APP_VERSION = '20261101-183004';
 const app = document.getElementById('app');
 // La barra de descarga de documentos solo se muestra en la pantalla de inicio.
 function mostrarDocsBar(si){ const d = document.getElementById('docsBar'); if(d) d.classList.toggle('hidden', !si); }
@@ -534,7 +535,7 @@ function renderConfig(errorMsg){
         <button class="btn-outline" id="btnVerCobertura" style="flex:1;">📈 Cobertura del banco</button>
         <button class="btn-outline" id="btnRepasarFalladasAcum" style="flex:1;" ${getFalladas().length===0?'disabled':''}>🔁 Repasar falladas (${getFalladas().length})</button>
         <button class="btn-outline" id="btnVerMarcadas" style="flex:1;" ${getMarcadas().length===0?'disabled':''}>⭐ Marcadas (${getMarcadas().length})</button>
-        <button class="btn-outline" id="btnVerReportes" style="flex:1;" ${listaReportes().length===0?'disabled':''}>🚩 Mis reportes (${listaReportes().length})</button>
+        <button class="btn-outline" id="btnVerReportes" style="flex:1;" ${listaReportes().length + getPorReportar().length===0?'disabled':''}>🚩 Mis reportes (${listaReportes().length})${getPorReportar().length ? ' · ' + getPorReportar().length + ' por enviar' : ''}</button>
         <button class="btn-outline" id="btnBuscar" style="flex:1;">🔍 Buscar en el banco</button>
       </div>
       ${getFalladas().length ? `<div class="info-text" style="margin-top:8px;">🔁 El repaso coge hasta ${MAX_REPASO} falladas: primero las que te toca repasar y las que más fallas. Una pregunta sale de las falladas cuando la aciertas ${ACIERTOS_PARA_SALIR} veces seguidas en exámenes distintos.</div>` : ''}
@@ -785,7 +786,7 @@ function renderMarcadas(){
       <div style="margin-top:8px;font-size:.9rem;">Respuesta correcta: <strong>${letraCorrecta(q)}) ${textoCorrecto(q)}</strong></div>
       <div class="explicacion-box" style="margin-top:8px;">${q.explicacion}</div>
       <button type="button" class="btn-outline" data-desmarcar="${q.id}" style="margin-top:8px;font-size:.8rem;padding:4px 10px;">☆ Quitar de marcadas</button>
-      ${botonReporteHtml(q.id, false)}
+      ${botonReporteHtml(q.id)}
     </div>
   `).join('') || '<div class="info-text">No tienes preguntas marcadas todavía. Pulsa la estrella ☆ durante un examen para guardar aquí las que te llamen la atención.</div>';
 
@@ -990,7 +991,7 @@ function pintarTarjetasBuscador(f, anadir){
       <div style="margin-top:8px;font-weight:600;">${resaltar(q.enunciado, f)}</div>
       <div style="margin-top:6px;font-size:.9rem;">Respuesta correcta: <strong>${letraCorrecta(q)}) ${resaltar(textoCorrecto(q), f)}</strong></div>
       <div class="explicacion-box" style="margin-top:8px;">${resaltar(q.explicacion, f)}</div>
-      ${botonReporteHtml(q.id, false)}
+      ${botonReporteHtml(q.id)}
     </div>
   `).join('');
   const btnMas = document.getElementById('btnBuscarMas');
@@ -1242,6 +1243,7 @@ function encolarBuzon(id, rep){
 var _enviandoBuzon = false;
 async function enviarBuzon(){
   if(!urlBuzon() || _enviandoBuzon) return;
+  let enviado = false;
   const pend = leerJSON('f11_buzon_pendientes', {});
   const claves = Object.keys(pend);
   if(claves.length === 0) return;
@@ -1261,6 +1263,7 @@ async function enviarBuzon(){
       const ahora = leerJSON('f11_buzon_pendientes', {});
       claves.forEach(k=>{ if(ahora[k] && ahora[k].t === pend[k].t) delete ahora[k]; });
       localStorage.setItem('f11_buzon_pendientes', JSON.stringify(ahora));
+      enviado = true;
       break;
     }
   }catch(e){
@@ -1268,11 +1271,12 @@ async function enviarBuzon(){
   }finally{
     _enviandoBuzon = false;
   }
+  // Los reportes encolados mientras se enviaba este lote salen ahora
+  if(enviado && Object.keys(leerJSON('f11_buzon_pendientes', {})).length > 0) enviarBuzon();
 }
 function escHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c])); }
-function botonReporteHtml(id, compacto){
+function botonReporteHtml(id){
   const hecho = !!reporteDe(id);
-  if(compacto) return `<button type="button" data-reportar="${id}" title="Reportar un problema con esta pregunta" style="background:none;border:none;font-size:1.2rem;cursor:pointer;padding:2px 6px;">${hecho ? '🚩' : '⚐'}</button>`;
   return `<button type="button" class="btn-outline btn-reporte" data-reportar="${id}">${hecho ? '🚩 Reportada (editar)' : '⚐ Reportar pregunta'}</button>`;
 }
 function abrirReporte(id){
@@ -1319,12 +1323,82 @@ function abrirReporte(id){
 }
 function refrescarBotonesReporte(id){
   if(document.getElementById('listaReportes')){ renderReportes(); return; }
-  document.querySelectorAll('[data-reportar="' + id + '"]').forEach(b => { b.outerHTML = botonReporteHtml(id, !b.classList.contains('btn-reporte')); });
+  document.querySelectorAll('[data-reportar="' + id + '"]').forEach(b => { b.outerHTML = botonReporteHtml(id); });
+}
+// Mientras se responde, la bandera solo apunta la pregunta en «f11_por_reportar», sin interrumpir ni parar
+// nada. Al terminar salen todas juntas (bloqueReportesHtml) para elegir el motivo y enviarlas.
+function getPorReportar(){ return leerJSON('f11_por_reportar', []).filter(id => !!BANCO_POR_ID[id]); }
+function botonPorReportarHtml(id){
+  const on = getPorReportar().includes(id);
+  return `<button type="button" class="btn-bandera" data-por-reportar="${id}" aria-pressed="${on}" title="${on ? 'Apuntada para reportar al terminar. Pulsa para quitarla.' : 'Apuntar para reportar al terminar'}">${on ? '🚩' : '⚐'}</button>`;
+}
+function alternarPorReportar(id){
+  const lista = getPorReportar();
+  guardarJSON('f11_por_reportar', lista.includes(id) ? lista.filter(x => x !== id) : lista.concat(id));
+}
+function bloqueReportesHtml(){
+  const ids = getPorReportar();
+  if(ids.length === 0) return '';
+  const items = ids.map(id => {
+    const q = BANCO_POR_ID[id], previo = reporteDe(id), elegidos = previo ? previo.m : [];
+    return `<div class="review-item" data-pendiente="${id}">
+      <div class="tag">${id}</div><div class="tag">${q.bloque==='reglas'?(q.regla||'Reglas'):(q.articulo||'Normativa')}</div>
+      <div style="margin-top:8px;font-weight:600;">${q.enunciado}</div>
+      <div style="margin-top:6px;font-size:.9rem;">Respuesta correcta: <strong>${letraCorrecta(q)}) ${textoCorrecto(q)}</strong></div>
+      <div class="motivos-reporte">${MOTIVOS_REPORTE.map(([k, n]) => `<button type="button" data-motivo="${k}" class="${elegidos.includes(k) ? 'active' : ''}">${n}</button>`).join('')}</div>
+      <textarea data-comentario rows="2" style="width:100%;box-sizing:border-box;" aria-label="Comentario" placeholder="Comentario (opcional; obligatorio en «Otro motivo»)">${escHtml(previo ? previo.c || '' : '')}</textarea>
+      <div class="error-box hidden" data-error style="margin-top:8px;"></div>
+      <button type="button" class="btn-outline btn-reporte" data-descartar>✖ No reportar esta</button>
+    </div>`;
+  }).join('');
+  return `<div class="card" id="bloqueReportes">
+    <h2>🚩 Preguntas para reportar (<span id="numPendientes">${ids.length}</span>)</h2>
+    <div class="info-text">Elige qué le pasa a cada una; puedes marcar varios motivos.</div>
+    ${items}
+    <button type="button" class="btn-primary" id="btnEnviarReportes" style="width:100%;margin-top:12px;">ENVIAR REPORTES</button>
+  </div>`;
+}
+function activarBloqueReportes(){
+  const bloque = document.getElementById('bloqueReportes');
+  if(!bloque) return;
+  window.scrollTo(0, 0);
+  const quedan = ()=> bloque.querySelectorAll('[data-pendiente]');
+  bloque.addEventListener('click', e=>{
+    const m = e.target.closest('[data-motivo]');
+    if(m){ m.classList.toggle('active'); return; }
+    const d = e.target.closest('[data-descartar]');
+    if(!d) return;
+    const item = d.closest('[data-pendiente]');
+    alternarPorReportar(item.dataset.pendiente);
+    item.remove();
+    document.getElementById('numPendientes').textContent = quedan().length;
+    if(quedan().length === 0) bloque.remove();
+  });
+  document.getElementById('btnEnviarReportes').addEventListener('click', ()=>{
+    let primerError = null;
+    const envios = Array.from(quedan()).map(item => {
+      const m = Array.from(item.querySelectorAll('[data-motivo].active')).map(b => b.dataset.motivo);
+      const c = item.querySelector('[data-comentario]').value.trim();
+      const fallo = m.length === 0 ? 'Elige al menos un motivo o pulsa «No reportar esta».' : (m.includes('otro') && !c ? 'Explica en el comentario cuál es el otro motivo.' : '');
+      const err = item.querySelector('[data-error]');
+      err.textContent = fallo; err.classList.toggle('hidden', !fallo);
+      if(fallo && !primerError) primerError = item;
+      return {id: item.dataset.pendiente, m, c};
+    });
+    if(primerError){ primerError.scrollIntoView({behavior:'smooth', block:'center'}); return; }
+    envios.forEach(r => guardarReporte(r.id, {m: r.m, c: r.c, e: BANCO_POR_ID[r.id].enunciado.slice(0, 140), v: APP_VERSION}));
+    guardarJSON('f11_por_reportar', []);
+    bloque.innerHTML = '<strong>✅ ' + (envios.length === 1 ? 'Reporte enviado.' : envios.length + ' reportes enviados.') + '</strong> Gracias: se revisarán para mejorar el banco.';
+    document.querySelectorAll('[data-reportar]').forEach(b => { b.outerHTML = botonReporteHtml(b.dataset.reportar); });
+  });
 }
 // Un único manejador para todos los botones de reportar, estén en la pantalla que estén.
 document.addEventListener('click', e=>{
-  const b = e.target.closest && e.target.closest('[data-reportar]');
-  if(b){ e.preventDefault(); abrirReporte(b.dataset.reportar); }
+  if(!e.target.closest) return;
+  const b = e.target.closest('[data-reportar]');
+  if(b){ e.preventDefault(); abrirReporte(b.dataset.reportar); return; }
+  const f = e.target.closest('[data-por-reportar]');
+  if(f){ e.preventDefault(); alternarPorReportar(f.dataset.porReportar); f.outerHTML = botonPorReportarHtml(f.dataset.porReportar); }
 });
 function textoReportes(lista){
   const nombre = k => (MOTIVOS_REPORTE.find(x => x[0] === k) || [k, k])[1].replace(/^\S+\s/, '');
@@ -1342,10 +1416,11 @@ function renderReportes(){
       <div style="margin-top:6px;">${r.m.map(k => `<div class="tag tag-nivel">${nombre(k)}</div>`).join('')}</div>
       ${r.c ? `<div class="explicacion-box" style="margin-top:8px;">${escHtml(r.c)}</div>` : ''}
       ${q ? `<div style="margin-top:6px;font-size:.9rem;">Respuesta correcta: <strong>${letraCorrecta(q)}) ${textoCorrecto(q)}</strong></div>` : ''}
-      ${q ? botonReporteHtml(r.id, false) : ''}
+      ${q ? botonReporteHtml(r.id) : ''}
     </div>`;
-  }).join('') || '<div class="info-text">No has reportado ninguna pregunta. Pulsa la bandera ⚐ junto a la estrella de una pregunta para avisar de un problema.</div>';
+  }).join('') || '<div class="info-text">No has enviado ningún reporte. Pulsa la bandera ⚐ junto a la estrella de una pregunta para apuntarla y elige el motivo al terminar.</div>';
   app.innerHTML = `
+    ${bloqueReportesHtml()}
     <div class="card" id="listaReportes">
       <h2>🚩 Mis reportes (${lista.length})</h2>
       <div class="info-text">Tus reportes llegan a la revisión del banco. ${getUsuario() ? 'Además se guardan en tu cuenta y se sincronizan entre tus dispositivos.' : 'Esta lista solo se guarda en este navegador: inicia sesión para tenerla en tu cuenta.'}</div>
@@ -1357,6 +1432,7 @@ function renderReportes(){
     </div>
   `;
   document.getElementById('btnVolverConfig').addEventListener('click', ()=>renderConfig());
+  activarBloqueReportes();
   document.getElementById('btnCopiarReportes').addEventListener('click', async ()=>{
     const btn = document.getElementById('btnCopiarReportes');
     try{ await navigator.clipboard.writeText(textoReportes(lista)); btn.textContent = '✅ COPIADO'; }
@@ -1725,7 +1801,7 @@ function renderPregunta(){
         <span class="badge">Dificultad ${q.dificultad} · ${NIVELES_NOMBRE[q.dificultad]}</span>
         <span class="badge">${q.bloque === 'reglas' ? '⚖️ Reglas de Juego' : '📋 Normativa RFEF'} ${q.regla ? '· '+q.regla : (q.articulo? '· '+q.articulo : '')}</span>
         <button type="button" id="btnMarcar" title="Marcar para repasar más tarde" style="margin-left:auto;background:none;border:none;font-size:1.3rem;cursor:pointer;padding:2px 6px;">${esMarcada(q.id) ? '⭐' : '☆'}</button>
-        ${!modoExamen ? botonReporteHtml(q.id, true) : ''}
+        ${botonPorReportarHtml(q.id)}
       </div>
       ${modoExamen ? `<div class="timer-box" id="timerBox"><div class="timer-top"><span id="timerTxt"></span><span>${bloq ? '⛔ Tiempo agotado: pregunta bloqueada' : 'Tiempo para esta pregunta'}</span></div><div class="timer-bar"><div class="timer-fill" id="timerFill"></div></div></div>` : ''}
       ${modoExamen ? `<div class="info-text">En modo examen no se puede volver atrás: al pasar a la siguiente, la respuesta queda cerrada.</div>` : ''}
@@ -1801,7 +1877,7 @@ function renderFlashcardPregunta(){
         <span class="badge">Dificultad ${q.dificultad} · ${NIVELES_NOMBRE[q.dificultad]}</span>
         <span class="badge">${q.bloque === 'reglas' ? '⚖️ Reglas de Juego' : '📋 Normativa RFEF'} ${q.regla ? '· '+q.regla : (q.articulo? '· '+q.articulo : '')}</span>
         <button type="button" id="btnMarcar" title="Marcar para repasar más tarde" style="margin-left:auto;background:none;border:none;font-size:1.3rem;cursor:pointer;padding:2px 6px;">${esMarcada(q.id) ? '⭐' : '☆'}</button>
-        ${botonReporteHtml(q.id, true)}
+        ${botonPorReportarHtml(q.id)}
       </div>
       <div class="info-text">Piensa tu respuesta y pulsa la tarjeta de la derecha para darle la vuelta. No se guarda ningún acierto ni fallo.<span class="solo-teclado"> Atajos: Espacio/Enter gira la tarjeta o pasa a la siguiente · ← → navega.</span></div>
       <div class="fc-par">
@@ -1866,7 +1942,7 @@ function revelarFlashcard(){
 function finalizarFlashcard(){
   borrarProgreso();
   state.finalizado = true;
-  renderConfig();
+  if(getPorReportar().length > 0) renderReportes(); else renderConfig();
 }
 
 function finalizarExamen(){
@@ -1940,7 +2016,7 @@ function renderResultados(){
           <div class="info-text" style="margin-top:4px;">Referencia: ${q.referencia || q.regla || q.articulo || '-'} ${q.fuente ? ' · Fuente: ' + q.fuente : ''}</div>
           <div style="margin-top:6px;">${linkFuenteHtml(q)}</div>
         </div>
-        ${botonReporteHtml(q.id, false)}
+        ${botonReporteHtml(q.id)}
       </div>
     `;
   }).join('');
@@ -1951,6 +2027,7 @@ function renderResultados(){
   }).join('');
 
   app.innerHTML = `
+    ${bloqueReportesHtml()}
     <div class="card">
       <h2>RESULTADOS</h2>
       <div class="big-number">${pct}%</div>
@@ -1989,6 +2066,7 @@ function renderResultados(){
     <div class="footer-note">Banco de preguntas basado en Reglas de Juego IFAB, Bases de Competición 26/27 y Reglamento de Competiciones RFEF.</div>
   `;
 
+  activarBloqueReportes();
   document.getElementById('btnNuevo').addEventListener('click', nuevoExamenMismaConfig);
   document.getElementById('btnRepetir').addEventListener('click', repetirExamen);
   document.getElementById('btnConfig').addEventListener('click', ()=>renderConfig());
@@ -2178,7 +2256,7 @@ if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
 // mayúsculas de minúsculas) es la clave de la cuenta. Pega abajo la URL de tu base de datos, sin barra final.
 // Si se deja vacía, la app funciona igual pero sin cuentas.
 var SYNC_URL = 'https://f11-examen-default-rtdb.europe-west1.firebasedatabase.app';
-var SYNC_CLAVES = ['f11_historial', 'f11_falladas', 'f11_marcadas', 'f11_vistas', 'f11_progreso', 'f11_repaso', 'f11_reportes'];
+var SYNC_CLAVES = ['f11_historial', 'f11_falladas', 'f11_marcadas', 'f11_vistas', 'f11_progreso', 'f11_repaso', 'f11_reportes', 'f11_por_reportar'];
 var sync = {sincronizando:false, pendiente:false, timer:null, estado:'inactivo', ultima:0, error:''};
 var panelUsuario = {modo:'login', u:'', error:'', ocupado:false};
 
@@ -2209,7 +2287,7 @@ function unirListas(a, b, idFn){
 // Marcadas y falladas se sincronizan pregunta a pregunta: para cada ID se guarda si está en la lista
 // (1) o se quitó (0) y cuándo cambió, en «<clave>_log». Al fusionar gana el cambio más reciente de cada
 // pregunta, así que quitar una marca en un dispositivo no se pierde aunque otro haya cambiado otras.
-var CLAVES_POR_ID = ['f11_marcadas', 'f11_falladas'];
+var CLAVES_POR_ID = ['f11_marcadas', 'f11_falladas', 'f11_por_reportar'];
 function leerLog(k){ const l = leerJSON(k + '_log', {}); return (l && typeof l === 'object' && !Array.isArray(l)) ? l : {}; }
 function guardarLog(k, log){ try{ localStorage.setItem(k + '_log', JSON.stringify(log)); }catch(e){} }
 function registrarCambiosLista(k, antes, despues){
@@ -2518,7 +2596,7 @@ function limpiarRegistrosReciclados(){
   const guardadas = leerJSON('f11_epocas', {});
   const pendientes = Object.keys(EPOCAS_IDS).filter(id => (guardadas[id] || 0) < EPOCAS_IDS[id]);
   if(pendientes.length === 0) return;
-  ['f11_falladas', 'f11_marcadas', 'f11_vistas'].forEach(k=>{
+  ['f11_falladas', 'f11_marcadas', 'f11_vistas', 'f11_por_reportar'].forEach(k=>{
     const arr = leerJSON(k, null);
     if(Array.isArray(arr)){
       const nuevo = arr.filter(id => pendientes.indexOf(id) === -1);
