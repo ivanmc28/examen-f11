@@ -1,6 +1,6 @@
 // Service worker: primero la red, preguntando siempre al servidor si hay versión nueva («no-cache»: si no ha
 // cambiado responde 304 y no se vuelve a descargar) y, sin conexión, lo guardado.
-const CACHE = 'f11-v6';
+const CACHE = 'f11-v7';
 const PRECACHE = ['./', 'index.html', 'manifest.webmanifest', 'iconos/icon-192.png', 'iconos/icon-512.png', 'iconos/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
