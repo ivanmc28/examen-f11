@@ -306,7 +306,7 @@ function avanzarExamen(){
   else finalizarExamen();
 }
 
-const APP_VERSION = '20261104-182055';
+const APP_VERSION = '20261118-112248';
 const app = document.getElementById('app');
 // La barra de descarga de documentos solo se muestra en la pantalla de inicio.
 function mostrarDocsBar(si){ const d = document.getElementById('docsBar'); if(d) d.classList.toggle('hidden', !si); }
@@ -1310,6 +1310,10 @@ function botonReporteHtml(id){
   const hecho = !!reporteDe(id);
   return `<button type="button" class="btn-outline btn-reporte" data-reportar="${id}">${hecho ? '🚩 Reportada (editar)' : '⚐ Reportar pregunta'}</button>`;
 }
+function opcionesReporteHtml(q){
+  const o = q.opciones || {};
+  return '<div style="margin-top:8px;font-size:.9rem;">' + Object.keys(o).sort().map(k => '<div style="margin-top:4px;' + (k === q.correcta ? 'font-weight:600;' : '') + '">' + k + ') ' + escHtml(o[k]) + (k === q.correcta ? ' ✔' : '') + '</div>').join('') + '</div>';
+}
 function abrirReporte(id){
   const q = BANCO_POR_ID[id]; if(!q) return;
   const previo = reporteDe(id);
@@ -1320,7 +1324,7 @@ function abrirReporte(id){
   ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:3000;display:flex;align-items:center;justify-content:center;padding:16px;';
   ov.innerHTML = '<div class="card" style="max-width:480px;width:100%;margin:0;max-height:90vh;overflow:auto;">' +
     '<h2 style="margin-top:0;">⚐ Reportar pregunta ' + q.id + '</h2>' +
-    '<div class="info-text">' + escHtml(q.enunciado) + '</div>' +
+    '<div class="info-text">' + escHtml(q.enunciado) + opcionesReporteHtml(q) + '</div>' +
     '<div class="info-text" style="margin-top:10px;"><strong>¿Qué le pasa?</strong> Puedes marcar varias.</div>' +
     '<div class="motivos-reporte">' + MOTIVOS_REPORTE.map(([k, t]) => '<button type="button" data-motivo="' + k + '" class="' + (elegidos.has(k) ? 'active' : '') + '">' + t + '</button>').join('') + '</div>' +
     '<label for="reporteComentario" style="font-size:.85rem;">Comentario (opcional; obligatorio en «Otro motivo»)</label>' +
@@ -1375,7 +1379,7 @@ function bloqueReportesHtml(){
     return `<div class="review-item" data-pendiente="${id}">
       <div class="tag">${id}</div><div class="tag">${q.bloque==='reglas'?(q.regla||'Reglas'):(q.articulo||'Normativa')}</div>
       <div style="margin-top:8px;font-weight:600;">${q.enunciado}</div>
-      <div style="margin-top:6px;font-size:.9rem;">Respuesta correcta: <strong>${letraCorrecta(q)}) ${textoCorrecto(q)}</strong></div>
+      ${opcionesReporteHtml(q)}
       <div class="motivos-reporte">${MOTIVOS_REPORTE.map(([k, n]) => `<button type="button" data-motivo="${k}" class="${elegidos.includes(k) ? 'active' : ''}">${n}</button>`).join('')}</div>
       <textarea data-comentario rows="2" style="width:100%;box-sizing:border-box;" aria-label="Comentario" placeholder="Comentario (opcional; obligatorio en «Otro motivo»)">${escHtml(previo ? previo.c || '' : '')}</textarea>
       <div class="error-box hidden" data-error style="margin-top:8px;"></div>
